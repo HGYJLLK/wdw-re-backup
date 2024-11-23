@@ -1,0 +1,25 @@
+-- 创建数据库
+CREATE DATABASE IF NOT EXISTS user_auth
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_0900_ai_ci;
+
+-- 使用数据库
+USE user_auth;
+
+-- 创建users表
+CREATE TABLE `users` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `username` varchar(50) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `security_question` varchar(255) NOT NULL,
+  `security_answer` varchar(255) NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `avatar_url` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `username` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 可选：创建一个专门的数据库用户并授权（建议在生产环境中使用）
+-- CREATE USER 'user_auth_admin'@'localhost' IDENTIFIED BY 'your_strong_password';
+-- GRANT ALL PRIVILEGES ON user_auth.* TO 'user_auth_admin'@'localhost';
+-- FLUSH PRIVILEGES;
