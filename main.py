@@ -19,10 +19,10 @@ if not os.path.exists(UPLOAD_FOLDER):
 
 # Database configuration
 DB_CONFIG = {
-    'host': 'localhost',
+    'host': '47.119.119.114',
     'user': 'root',
     # 'password': '2333',
-    'password': 'loveat2024a+.',
+    'password': 'your_password',
     'port': 3306,
     'database': 'user_auth'
 }
@@ -124,10 +124,25 @@ class UserService:
         return DatabaseManager.execute_query(query, params)
 
     @staticmethod
-    def update_password(username, new_password):
+    def update_user_profile(username, nickname, intro):
+        query = "UPDATE users SET nickname = %s, intro = %s WHERE username = %s"
+        params = (nickname, intro, username)
+        return DatabaseManager.execute_query(query, params)
+
+    @staticmethod
+    def update_password(username, old_password, new_password):
+        # 首先验证旧密码
+        user = UserService.get_user_by_username(username)
+        if not user or user['password'] != old_password:
+            return None
+        
         query = "UPDATE users SET password = %s WHERE username = %s"
         params = (new_password, username)
         return DatabaseManager.execute_query(query, params)
+
+
+
+    
 
 
 @app.route('/uploads/avatars/<filename>')
@@ -223,6 +238,12 @@ def login():
         if user['password'] != password:
             return jsonify({'error': 'Invalid password'}), 401
 
+        # 检查user字典中是否存在所有必要的键
+        required_keys = ['username', 'nickname', 'avatar_url', 'intro', 'security_question']
+        for key in required_keys:
+            if key not in user:
+                user[key] = ''  # 如果键不存在，设置一个默认值
+
         return jsonify({
             'code': 200,
             'message': 'Login successful',
@@ -230,16 +251,18 @@ def login():
                 'token': f"{username}_token",
                 'userInfo': {
                     'username': user['username'],
-                    'nickname': user['username'],
-                    'avatarUrl': user['avatar_url'] or '',
-                    'security_question': user['security_question']
+                    'nickname': user.get('nickname') or user['username'],
+                    'avatarUrl': user.get('avatar_url') or '',
+                    'intro': user.get('intro') or '',
+                    'security_question': user.get('security_question') or ''
                 }
             }
         }), 200
 
     except Exception as e:
-        logger.error(f"Login error: {e}")
-        return jsonify({'error': 'Internal server error'}), 500
+        logger.error(f"Login error: {str(e)}")
+        return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
+
 
 
 @app.route('/reset-password', methods=['POST'])
@@ -312,6 +335,52 @@ def logout():
     except Exception as e:
         logger.error(f"Logout error: {e}")
         return jsonify({'error': 'Logout failed'}), 500
+
+
+
+@app.route('/api/user/profile', methods=['PUT'])
+def update_profile():
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        nickname = data.get('nickname')
+        intro = data.get('intro')
+
+        if not all([username, nickname]):
+            return jsonify({'error': 'Missing required fields'}), 400
+
+        result = UserService.update_user_profile(username, nickname, intro)
+        if result is not None:
+            return jsonify({'message': 'Profile updated successfully'}), 200
+        else:
+            return jsonify({'error': 'Profile update failed'}), 500
+
+    except Exception as e:
+        logger.error(f"Profile update error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/user/password', methods=['PUT'])
+def change_password():
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        old_password = data.get('oldPassword')
+        new_password = data.get('newPassword')
+
+        if not all([username, old_password, new_password]):
+            return jsonify({'error': 'Missing required fields'}), 400
+
+        result = UserService.update_password(username, old_password, new_password)
+        if result is not None:
+            return jsonify({'message': 'Password changed successfully'}), 200
+        else:
+            return jsonify({'error': 'Password change failed'}), 401
+
+    except Exception as e:
+        logger.error(f"Password change error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
 
 
 
