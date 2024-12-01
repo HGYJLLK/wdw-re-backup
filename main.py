@@ -339,45 +339,46 @@ def logout():
 
 
 @app.route('/api/user/profile', methods=['PUT'])
-def update_profile():
+def update_user():
     try:
         data = request.get_json()
         username = data.get('username')
-        nickname = data.get('nickname')
-        intro = data.get('intro')
+        action = data.get('action')
 
-        if not all([username, nickname]):
+        if not username or not action:
             return jsonify({'error': 'Missing required fields'}), 400
 
-        result = UserService.update_user_profile(username, nickname, intro)
-        if result is not None:
-            return jsonify({'message': 'Profile updated successfully'}), 200
+        if action == 'profile':
+            nickname = data.get('nickname')
+            intro = data.get('intro')
+
+            if not nickname:
+                return jsonify({'error': 'Missing required fields'}), 400
+
+            result = UserService.update_user_profile(username, nickname, intro)
+            if result is not None:
+                return jsonify({'message': 'Profile updated successfully'}), 200
+            else:
+                return jsonify({'error': 'Profile update failed'}), 500
+
+        elif action == 'password':
+            old_password = data.get('oldPassword')
+            new_password = data.get('newPassword')
+
+            if not old_password or not new_password:
+                return jsonify({'error': 'Missing required fields'}), 400
+
+            result = UserService.update_password(username, old_password, new_password)
+            if result is not None:
+                return jsonify({'message': 'Password changed successfully'}), 200
+            else:
+                return jsonify({'error': 'Password change failed'}), 401
+
         else:
-            return jsonify({'error': 'Profile update failed'}), 500
+            return jsonify({'error': 'Invalid action'}), 400
 
     except Exception as e:
-        logger.error(f"Profile update error: {e}")
-        return jsonify({'error': 'Internal server error'}), 500
-
-@app.route('/api/user/password', methods=['PUT'])
-def change_password():
-    try:
-        data = request.get_json()
-        username = data.get('username')
-        old_password = data.get('oldPassword')
-        new_password = data.get('newPassword')
-
-        if not all([username, old_password, new_password]):
-            return jsonify({'error': 'Missing required fields'}), 400
-
-        result = UserService.update_password(username, old_password, new_password)
-        if result is not None:
-            return jsonify({'message': 'Password changed successfully'}), 200
-        else:
-            return jsonify({'error': 'Password change failed'}), 401
-
-    except Exception as e:
-        logger.error(f"Password change error: {e}")
+        logger.error(f"User update error: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 
