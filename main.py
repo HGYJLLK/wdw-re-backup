@@ -17,76 +17,87 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# Database configuration
+# 数据库配置
 DB_CONFIG = {
-    'host': '47.119.119.114',
+    'host': '127.0.0.1',  # 使用本地数据库
     'user': 'root',
-    # 'password': '2333',
-    'password': 'your_password',
-    'port': 3306,
-    'database': 'user_auth'
+    'password': '',  # 替换为你的密码
+    'database': 'user_auth',
+    'port': 3306
 }
 
-# Configure logging
+# 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 def allowed_file(filename):
+    """检查文件类型是否允许"""
     return '.' in filename and \
         filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 def save_file(file):
+    """保存上传的文件"""
     if file and allowed_file(file.filename):
-        # 生成唯一文件名
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        original_filename = secure_filename(file.filename)
-        filename = f"{timestamp}_{original_filename}"
+        try:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            original_filename = secure_filename(file.filename)
+            filename = f"{timestamp}_{original_filename}"
+            file_path = os.path.join(UPLOAD_FOLDER, filename)
 
-        # 保存文件
-        file_path = os.path.join(UPLOAD_FOLDER, filename)
-        file.save(file_path)
+            # 确保目录存在
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
-        # 返回文件URL
-        return f"/uploads/avatars/{filename}"
+            # 保存文件
+            file.save(file_path)
+
+            # 返回相对URL路径
+            return f"/uploads/avatars/{filename}"
+        except Exception as e:
+            logger.error(f"Error saving file: {e}")
+            return None
     return None
 
 
 class DatabaseManager:
     @staticmethod
     def get_connection():
+        """获取数据库连接"""
         try:
+            logger.info("Attempting to connect to database...")
             conn = mysql.connector.connect(**DB_CONFIG)
+            logger.info("Database connection successful")
             return conn
         except Exception as e:
             logger.error(f"Database connection error: {e}")
-            return None
+            raise
 
     @staticmethod
     def execute_query(query, params=None, fetch=False):
+        """执行数据库查询"""
         conn = None
         cursor = None
         try:
             conn = DatabaseManager.get_connection()
-            if not conn:
-                return None
-
             cursor = conn.cursor(dictionary=True)
+            logger.info(f"Executing query: {query} with params: {params}")
             cursor.execute(query, params or ())
 
             if fetch:
                 result = cursor.fetchall()
+                logger.info(f"Query returned {len(result)} results")
             else:
                 conn.commit()
                 result = cursor.rowcount
-
+                logger.info(f"Query affected {result} rows")
             return result
+
         except Exception as e:
             logger.error(f"Query execution error: {e}")
             if conn:
                 conn.rollback()
-            return None
+            raise
         finally:
             if cursor:
                 cursor.close()
@@ -97,102 +108,97 @@ class DatabaseManager:
 class UserService:
     @staticmethod
     def create_user(username, password, security_question, security_answer):
-        query = """
-            INSERT INTO users (username, password, security_question, security_answer)
-            VALUES (%s, %s, %s, %s)
-        """
-        params = (username, password, security_question, security_answer)
-        return DatabaseManager.execute_query(query, params)
+        """创建新用户"""
+        try:
+            # 先检查用户是否已存在
+            existing_user = UserService.get_user_by_username(username)
+            if existing_user:
+                logger.error(f"Username {username} already exists")
+                return None
+
+            query = """
+                INSERT INTO users (username, password, security_question, security_answer)
+                VALUES (%s, %s, %s, %s)
+            """
+            params = (username, password, security_question, security_answer)
+            return DatabaseManager.execute_query(query, params)
+        except Exception as e:
+            logger.error(f"Error creating user: {e}")
+            return None
 
     @staticmethod
     def get_user_by_username(username):
-        query = "SELECT * FROM users WHERE username = %s"
-        params = (username,)
-        result = DatabaseManager.execute_query(query, params, fetch=True)
-        return result[0] if result else None
+        """通过用户名获取用户信息"""
+        try:
+            query = "SELECT * FROM users WHERE username = %s"
+            params = (username,)
+            result = DatabaseManager.execute_query(query, params, fetch=True)
+            return result[0] if result else None
+        except Exception as e:
+            logger.error(f"Error getting user: {e}")
+            return None
 
     @staticmethod
-    def update_password(username, new_password):
-        query = "UPDATE users SET password = %s WHERE username = %s"
-        params = (new_password, username)
-        return DatabaseManager.execute_query(query, params)
+    def update_user_profile(username, nickname=None, intro=None):
+        """更新用户资料"""
+        try:
+            updates = []
+            params = []
 
-    @staticmethod
-    def update_avatar(username, avatar_url):
-        query = "UPDATE users SET avatar_url = %s WHERE username = %s"
-        params = (avatar_url, username)
-        return DatabaseManager.execute_query(query, params)
+            if nickname is not None:
+                updates.append("nickname = %s")
+                params.append(nickname)
 
-    @staticmethod
-    def update_user_profile(username, nickname, intro):
-        query = "UPDATE users SET nickname = %s, intro = %s WHERE username = %s"
-        params = (nickname, intro, username)
-        return DatabaseManager.execute_query(query, params)
+            if intro is not None:
+                updates.append("intro = %s")
+                params.append(intro)
+
+            if not updates:
+                return True  # 没有要更新的内容，视为成功
+
+            query = f"UPDATE users SET {', '.join(updates)} WHERE username = %s"
+            params.append(username)
+
+            return DatabaseManager.execute_query(query, params)
+        except Exception as e:
+            logger.error(f"Error updating profile: {e}")
+            return None
 
     @staticmethod
     def update_password(username, old_password, new_password):
-        # 首先验证旧密码
-        user = UserService.get_user_by_username(username)
-        if not user or user['password'] != old_password:
+        """更新密码"""
+        try:
+            user = UserService.get_user_by_username(username)
+            if not user or user['password'] != old_password:
+                return None
+
+            query = "UPDATE users SET password = %s WHERE username = %s"
+            params = (new_password, username)
+            return DatabaseManager.execute_query(query, params)
+        except Exception as e:
+            logger.error(f"Error updating password: {e}")
             return None
-        
-        query = "UPDATE users SET password = %s WHERE username = %s"
-        params = (new_password, username)
-        return DatabaseManager.execute_query(query, params)
 
-
-
-    
-
+    @staticmethod
+    def update_avatar(username, avatar_url):
+        """更新头像"""
+        try:
+            query = "UPDATE users SET avatar_url = %s WHERE username = %s"
+            params = (avatar_url, username)
+            return DatabaseManager.execute_query(query, params)
+        except Exception as e:
+            logger.error(f"Error updating avatar: {e}")
+            return None
 
 @app.route('/uploads/avatars/<filename>')
 def uploaded_file(filename):
+    """获取上传的文件"""
     return send_from_directory(UPLOAD_FOLDER, filename)
-
-
-@app.route('/upload/avatar', methods=['POST'])
-def upload_avatar():
-    try:
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file uploaded'}), 400
-
-        file = request.files['file']
-        if not file or not allowed_file(file.filename):
-            return jsonify({'error': 'Invalid file type'}), 400
-
-        # 从请求头获取用户名
-        auth_header = request.headers.get('Authorization')
-        if not auth_header or not auth_header.startswith('Bearer '):
-            return jsonify({'error': 'Unauthorized'}), 401
-
-        token = auth_header.split(' ')[1]
-        username = token.split('_')[0]
-
-        # 保存文件
-        file_url = save_file(file)
-        if not file_url:
-            return jsonify({'error': 'Failed to save file'}), 500
-
-        # 更新数据库
-        result = UserService.update_avatar(username, file_url)
-        if result is None:
-            return jsonify({'error': 'Failed to update avatar'}), 500
-
-        return jsonify({
-            'code': 200,
-            'message': '头像上传成功',
-            'data': {
-                'url': file_url
-            }
-        })
-
-    except Exception as e:
-        logger.error(f"Upload avatar error: {e}")
-        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/register', methods=['POST'])
 def register():
+    """用户注册接口"""
     try:
         data = request.get_json()
         username = data.get('username')
@@ -200,25 +206,25 @@ def register():
         security_question = data.get('security_question')
         security_answer = data.get('security_answer')
 
-        # Validate input
+        logger.info(f"Attempting to register user: {username}")
+
+        # 校验输入
         if not all([username, password, security_question, security_answer]):
+            logger.error("Missing required registration fields")
             return jsonify({'error': 'Missing required fields'}), 400
 
-        # Check if username already exists
-        existing_user = UserService.get_user_by_username(username)
-        if existing_user:
-            return jsonify({'error': 'Username already exists'}), 409
-
-        # Create new user
+        # 创建新用户
         result = UserService.create_user(username, password, security_question, security_answer)
         if result is not None:
+            logger.info(f"Successfully registered user: {username}")
             return jsonify({'message': 'User registered successfully'}), 201
         else:
+            logger.error("Failed to create user")
             return jsonify({'error': 'Registration failed'}), 500
 
     except Exception as e:
         logger.error(f"Registration error: {e}")
-        return jsonify({'error': 'Internal server error'}), 500
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/login', methods=['POST'])
@@ -238,80 +244,147 @@ def login():
         if user['password'] != password:
             return jsonify({'error': 'Invalid password'}), 401
 
-        # 检查user字典中是否存在所有必要的键
-        required_keys = ['username', 'nickname', 'avatar_url', 'intro', 'security_question']
-        for key in required_keys:
-            if key not in user:
-                user[key] = ''  # 如果键不存在，设置一个默认值
+        # 生成简单的 token
+        token = f"Bearer_{username}"  # 简化 token 格式
+
+        user_info = {
+            'username': user['username'],
+            'nickname': user.get('nickname', user['username']),
+            'avatarUrl': user.get('avatar_url', ''),
+            'intro': user.get('intro', ''),
+            'security_question': user.get('security_question', '')
+        }
 
         return jsonify({
             'code': 200,
             'message': 'Login successful',
             'data': {
-                'token': f"{username}_token",
-                'userInfo': {
-                    'username': user['username'],
-                    'nickname': user.get('nickname') or user['username'],
-                    'avatarUrl': user.get('avatar_url') or '',
-                    'intro': user.get('intro') or '',
-                    'security_question': user.get('security_question') or ''
-                }
+                'token': token,
+                'userInfo': user_info
             }
         }), 200
 
     except Exception as e:
-        logger.error(f"Login error: {str(e)}")
-        return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
+        logger.error(f"Login error: {e}")
+        return jsonify({'error': str(e)}), 500
 
 
-
-@app.route('/reset-password', methods=['POST'])
-def reset_password():
+@app.route('/api/user/profile', methods=['PUT'])
+def update_user():
+    """更新用户信息接口"""
     try:
         data = request.get_json()
         username = data.get('username')
-        new_password = data.get('new_password')
 
-        # Validate input
-        if not all([username, new_password]):
-            return jsonify({'error': 'Missing required fields'}), 400
+        if not username:
+            return jsonify({'error': 'Username is required'}), 400
 
-        # Get user
+        # 获取当前用户信息
         user = UserService.get_user_by_username(username)
         if not user:
             return jsonify({'error': 'User not found'}), 404
 
-        # Update password
-        result = UserService.update_password(username, new_password)
-        if result is not None:
-            return jsonify({'message': 'Password reset successful'}), 200
-        else:
-            return jsonify({'error': 'Password reset failed'}), 500
+        updates = {}
+        update_made = False
+
+        # 更新昵称
+        if 'nickname' in data:
+            updates['nickname'] = data['nickname']
+            update_made = True
+
+        # 更新简介
+        if 'intro' in data:
+            updates['intro'] = data['intro']
+            update_made = True
+
+        # 如果有需要更新的基本信息
+        if update_made:
+            profile_result = UserService.update_user_profile(username, updates.get('nickname'), updates.get('intro'))
+            if profile_result is None:
+                return jsonify({'error': 'Failed to update profile'}), 500
+
+        # 更新密码（如果提供）
+        password_updated = False
+        if data.get('oldPassword') and data.get('newPassword'):
+            password_result = UserService.update_password(username, data['oldPassword'], data['newPassword'])
+            if password_result is None:
+                return jsonify({'error': 'Failed to update password'}), 401
+            password_updated = True
+
+        return jsonify({
+            'code': 200,
+            'message': 'Update successful',
+            'data': {
+                'profile_updated': update_made,
+                'password_updated': password_updated
+            }
+        })
 
     except Exception as e:
-        logger.error(f"Password reset error: {e}")
-        return jsonify({'error': 'Internal server error'}), 500
+        logger.error(f"Update user error: {e}")
+        return jsonify({'error': str(e)}), 500
 
+
+@app.route('/upload/avatar', methods=['POST'])
+def upload_avatar():
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file uploaded'}), 400
+
+        file = request.files['file']
+        if not file or not allowed_file(file.filename):
+            return jsonify({'error': 'Invalid file type'}), 400
+
+        # 从请求头获取用户名
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return jsonify({'error': 'Unauthorized'}), 401
+
+        # 简化的 token 解析
+        username = auth_header.split('Bearer_')[1]  # 直接获取用户名部分
+
+        # 获取用户信息
+        user = UserService.get_user_by_username(username)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # 保存新头像
+        file_url = save_file(file)
+        if not file_url:
+            return jsonify({'error': 'Failed to save file'}), 500
+
+        # 更新数据库中的头像URL
+        result = UserService.update_avatar(username, file_url)
+        if result is None:
+            return jsonify({'error': 'Failed to update avatar in database'}), 500
+
+        return jsonify({
+            'code': 200,
+            'message': '头像上传成功',
+            'data': {'url': file_url}
+        })
+
+    except Exception as e:
+        logger.error(f"Upload avatar error: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/verify-security', methods=['POST'])
 def verify_security():
+    """验证安全问题"""
     try:
         data = request.get_json()
         username = data.get('username')
         security_answer = data.get('security_answer')
 
-        # Get user and return security question
         user = UserService.get_user_by_username(username)
         if not user:
             return jsonify({'error': 'User not found'}), 404
 
-        # 如果没有提供security_answer,说明只是获取密保问题
         if not security_answer:
             return jsonify({
                 'security_question': user['security_question']
             }), 200
 
-        # 如果提供了security_answer,则验证答案
         if user['security_answer'] != security_answer:
             return jsonify({'error': 'Invalid security answer'}), 401
 
@@ -322,67 +395,7 @@ def verify_security():
 
     except Exception as e:
         logger.error(f"Security verification error: {e}")
-        return jsonify({'error': 'Internal server error'}), 500
-
-
-@app.route('/logout', methods=['GET'])
-def logout():
-    try:
-        return jsonify({
-            'code': 200,
-            'message': 'Logout successful'
-        })
-    except Exception as e:
-        logger.error(f"Logout error: {e}")
-        return jsonify({'error': 'Logout failed'}), 500
-
-
-
-@app.route('/api/user/profile', methods=['PUT'])
-def update_user():
-    try:
-        data = request.get_json()
-        username = data.get('username')
-        action = data.get('action')
-
-        if not username or not action:
-            return jsonify({'error': 'Missing required fields'}), 400
-
-        if action == 'profile':
-            nickname = data.get('nickname')
-            intro = data.get('intro')
-
-            if not nickname:
-                return jsonify({'error': 'Missing required fields'}), 400
-
-            result = UserService.update_user_profile(username, nickname, intro)
-            if result is not None:
-                return jsonify({'message': 'Profile updated successfully'}), 200
-            else:
-                return jsonify({'error': 'Profile update failed'}), 500
-
-        elif action == 'password':
-            old_password = data.get('oldPassword')
-            new_password = data.get('newPassword')
-
-            if not old_password or not new_password:
-                return jsonify({'error': 'Missing required fields'}), 400
-
-            result = UserService.update_password(username, old_password, new_password)
-            if result is not None:
-                return jsonify({'message': 'Password changed successfully'}), 200
-            else:
-                return jsonify({'error': 'Password change failed'}), 401
-
-        else:
-            return jsonify({'error': 'Invalid action'}), 400
-
-    except Exception as e:
-        logger.error(f"User update error: {e}")
-        return jsonify({'error': 'Internal server error'}), 500
-
-
-
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':
