@@ -1,3 +1,4 @@
+# pip install flask flask-cors mysql-connector-python pydub
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import mysql.connector
@@ -5,6 +6,8 @@ from datetime import datetime
 import logging
 import os
 from werkzeug.utils import secure_filename
+# 获取音频时长
+from pydub.utils import mediainfo
 
 app = Flask(__name__)
 CORS(app)
@@ -12,6 +15,8 @@ CORS(app)
 # 配置上传文件夹
 UPLOAD_FOLDER = 'uploads/avatars'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+UPLOAD_AUDIO_FOLDER = 'uploads/audio'
+ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'flac'}
 
 # 确保上传文件夹存在
 if not os.path.exists(UPLOAD_FOLDER):
@@ -21,7 +26,7 @@ if not os.path.exists(UPLOAD_FOLDER):
 DB_CONFIG = {
     'host': '127.0.0.1',  # 使用本地数据库
     'user': 'root',
-    'password': '',  # 替换为你的密码
+    'password': '123qweQWE!',  # 替换为你的密码
     'database': 'user_auth',
     'port': 3306
 }
@@ -36,6 +41,10 @@ def allowed_file(filename):
     return '.' in filename and \
         filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def allowed_audio_file(filename):
+    """检查音频文件类型是否允许"""
+    return '.' in filename and \
+        filename.rsplit('.', 1)[1].lower() in ALLOWED_AUDIO_EXTENSIONS
 
 def save_file(file):
     """保存上传的文件"""
@@ -59,6 +68,35 @@ def save_file(file):
             return None
     return None
 
+def save_audio_file(file):
+    """保存上传的音频文件"""
+    if file and allowed_audio_file(file.filename):
+        try:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            original_filename = secure_filename(file.filename)
+            filename = f"{timestamp}_{original_filename}"
+            file_path = os.path.join(UPLOAD_FOLDER, filename)
+
+            # 确保目录存在
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+            # 保存文件
+            file.save(file_path)
+            return file_path, filename
+        except Exception as e:
+            logger.error(f"Error saving audio file: {e}")
+            return None, None
+    return None, None
+
+def get_audio_duration(file_path):
+    """获取音频时长（毫秒）"""
+    try:
+        info = mediainfo(file_path)
+        duration = float(info['duration']) * 1000  # 转换为毫秒
+        return int(duration)
+    except Exception as e:
+        logger.error(f"Error getting audio duration: {e}")
+        return 0
 
 class DatabaseManager:
     @staticmethod
@@ -395,6 +433,97 @@ def verify_security():
 
     except Exception as e:
         logger.error(f"Security verification error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/upload/audio', methods=['POST'])
+def upload_audio():
+    try:
+        username = request.form.get('username')
+        files = request.files.getlist('audio_files')
+
+        print("/upload/audio：",username, files)
+
+        if not user_id or not files:
+            return jsonify({'error': 'Missing user or audio files'}), 400
+
+        saved_files = []
+        for file in files:
+            if not allowed_audio_file(file.filename):
+                continue
+
+            # 保存音频文件
+            file_path, filename = save_audio_file(file)
+            if not file_path:
+                continue
+
+            # 获取音频时长
+            duration = get_audio_duration(file_path)
+
+            # 获取用户Id
+            user_id = UserService.get_user_by_username(username)['id']
+
+            # 保存到数据库
+            conn = DatabaseManager.get_connection()
+            cursor = conn.cursor()
+            query = """
+                INSERT INTO audio_files (user_id, filename, duration, file_path)
+                VALUES (%s, %s, %s, %s)
+            """
+            cursor.execute(query, (user_id, filename, duration, file_path))
+            audio_id = cursor.lastrowid
+            conn.commit()
+            cursor.close()
+            conn.close()
+
+            # 添加到已保存文件列表
+            saved_files.append({
+                'id': audio_id,
+                'name': filename,
+                'ar': [{'name': '未知歌手'}],
+                'al': {'picUrl': ''},  # 固定的图片 URL
+                'dt': duration,
+                'mv': 0,
+                'alia': [],
+                'self': True,
+                'fee': 8,
+                'st': 0
+            })
+
+        # 返回结果
+        response = {
+            'songsDetail': {
+                'songs': saved_files,
+                'privileges': [{'chargeInfoList': [{'chargeType': 0}], 'st': 0} for _ in saved_files]
+            }
+        }
+        return jsonify(response), 200
+
+    except Exception as e:
+        logger.error(f"Error uploading audio files: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/audio/<audio_id>', methods=['GET'])
+def get_audio(audio_id):
+    """根据音频ID生成音频链接"""
+    try:
+        conn = DatabaseManager.get_connection()
+        cursor = conn.cursor(dictionary=True)
+        query = "SELECT file_path FROM audio_files WHERE id = %s"
+        cursor.execute(query, (audio_id,))
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if not result:
+            return jsonify({'error': 'Audio not found'}), 404
+
+        file_path = result['file_path']
+        return send_from_directory(os.path.dirname(file_path), os.path.basename(file_path))
+
+    except Exception as e:
+        logger.error(f"Error fetching audio file: {e}")
         return jsonify({'error': str(e)}), 500
 
 

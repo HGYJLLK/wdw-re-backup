@@ -12,7 +12,8 @@ UPLOAD_FOLDER = 'uploads/avatars'
 DB_CONFIG = {
     'host': '127.0.0.1',
     'user': 'root',
-    'password': '',
+    # 'password': '',
+    'password': '123qweQWE!',
     'database': 'user_auth',
     'port': 3306
 }
