@@ -525,6 +525,17 @@ def get_audio(audio_id):
     except Exception as e:
         logger.error(f"Error fetching audio file: {e}")
         return jsonify({'error': str(e)}), 500
+    
+@app.route('/logout', methods=['GET'])
+def logout():
+    try:
+        return jsonify({
+            'code': 200,
+            'message': 'Logout successful'
+        })
+    except Exception as e:
+        logger.error(f"Logout error: {e}")
+        return jsonify({'error': 'Logout failed'}), 500
 
 
 if __name__ == '__main__':
