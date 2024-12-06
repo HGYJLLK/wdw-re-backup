@@ -10,26 +10,51 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4d6bec77-8335-4191-9e0d-7a2a1cab67cc" name="更改" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/ python registration login module.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/dataSources.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/new_imgtext.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources.local.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dataSources.local.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources/bf219fc7-9080-4e04-bba8-05af0a7993de.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dataSources/bf219fc7-9080-4e04-bba8-05af0a7993de.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mysql.txt" beforeDir="false" afterPath="$PROJECT_DIR$/mysql.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/strict_test.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/uploads/avatars/20241204_162810_avatar.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/uploads/avatars/20241204_163402_avatar.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/uploads/avatars/20241204_165739_avatar.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/uploads/avatars/20241204_165823_avatar.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/uploads/avatars/20241204_192020_avatar.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/uploads/avatars/20241204_192625_avatar.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/uploads/avatars/20241204_193022_avatar.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/uploads/avatars/20241204_193348_avatar.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/uploads/avatars/20241204_193349_avatar.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/uploads/avatars/20241204_193526_avatar.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/uploads/avatars/20241204_195033_avatar.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/uploads/avatars/20241204_195205_avatar.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/uploads/avatars/20241204_195510_avatar.jpg" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 8
 }</component>
   <component name="ProjectId" id="2otA0hTD2FHhRCQvmiibeAgEuP9" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
@@ -59,13 +84,6 @@
     ]
   }
 }</component>
-  <component name="RunManager">
-    <configuration name="console.sql" type="DatabaseScript" editBeforeRun="true" nameIsGenerated="true">
-      <script-file value="$APPLICATION_CONFIG_DIR$/consoles/db/bf219fc7-9080-4e04-bba8-05af0a7993de/console.sql" />
-      <script-mode>FILE</script-mode>
-      <method v="2" />
-    </configuration>
-  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -84,6 +102,8 @@
       <workItem from="1733298432726" duration="1000" />
       <workItem from="1733298495060" duration="4786000" />
       <workItem from="1733311138296" duration="3283000" />
+      <workItem from="1733317241994" duration="604000" />
+      <workItem from="1733464345229" duration="7333000" />
     </task>
     <servers />
   </component>
@@ -91,8 +111,8 @@
     <option name="version" value="3" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/wdw_re_backup$main.coverage" NAME="main 覆盖结果" MODIFIED="1733313306787" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/wdw_re_backup$strict_test.coverage" NAME="strict_test 覆盖结果" MODIFIED="1733313309717" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/wdw_re_backup$this.coverage" NAME="this 覆盖结果" MODIFIED="1733299675419" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/main_py$strict_test.coverage" NAME="strict_test 覆盖结果" MODIFIED="1733471922517" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/main_py$new_imgtext.coverage" NAME="new_imgtext 覆盖结果" MODIFIED="1733473812865" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/main_py$main.coverage" NAME="main 覆盖结果" MODIFIED="1733473782912" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

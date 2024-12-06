@@ -29,8 +29,13 @@ if not os.path.exists(UPLOAD_AUDIO_FOLDER):
 DB_CONFIG = {
     'host': '127.0.0.1',  # 使用本地数据库
     'user': 'root',
+<<<<<<< Updated upstream
     'password': '123qweQWE!',  # 替换为你的密码
     # 'password': 'loveat2024a+.',
+=======
+    # 'password': '123qweQWE!',  # 替换为你的密码
+    'password': '',
+>>>>>>> Stashed changes
     'database': 'user_auth',
     'port': 3306
 }
@@ -45,19 +50,21 @@ def allowed_file(filename):
     return '.' in filename and \
         filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
 def allowed_audio_file(filename):
     """检查音频文件类型是否允许"""
     return '.' in filename and \
         filename.rsplit('.', 1)[1].lower() in ALLOWED_AUDIO_EXTENSIONS
 
-def save_file(file):
+
+def save_file(file, folder, filename):
     """保存上传的文件"""
     if file and allowed_file(file.filename):
         try:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             original_filename = secure_filename(file.filename)
-            filename = f"{timestamp}_{original_filename}"
-            file_path = os.path.join(UPLOAD_FOLDER, filename)
+            filename = f"{timestamp}_{filename}"
+            file_path = os.path.join(folder, filename)
 
             # 确保目录存在
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -66,11 +73,12 @@ def save_file(file):
             file.save(file_path)
 
             # 返回相对URL路径
-            return f"/uploads/avatars/{filename}"
+            return f"/uploads/{folder}/{filename}"
         except Exception as e:
             logger.error(f"Error saving file: {e}")
             return None
     return None
+
 
 def save_audio_file(file):
     """保存上传的音频文件"""
@@ -92,6 +100,7 @@ def save_audio_file(file):
             return None, None
     return None, None
 
+
 def get_audio_duration(file_path):
     """获取音频时长（毫秒）"""
     try:
@@ -101,6 +110,7 @@ def get_audio_duration(file_path):
     except Exception as e:
         logger.error(f"Error getting audio duration: {e}")
         return 0
+
 
 class DatabaseManager:
     @staticmethod
@@ -233,9 +243,12 @@ class UserService:
             return None
 
 
+<<<<<<< Updated upstream
 class MusicService:
     pass
 
+=======
+>>>>>>> Stashed changes
 @app.route('/uploads/avatars/<filename>')
 def uploaded_file(filename):
     """获取上传的文件"""
@@ -315,11 +328,11 @@ def login():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/user/profile', methods=['PUT'])
+@app.route('/api/user/update', methods=['POST'])
 def update_user():
-    """更新用户信息接口"""
+    """更新用户信息和密码接口"""
     try:
-        data = request.get_json()
+        data = request.form.to_dict()  # 支持表单数据（包括文件）
         username = data.get('username')
 
         if not username:
@@ -330,29 +343,57 @@ def update_user():
         if not user:
             return jsonify({'error': 'User not found'}), 404
 
+        # 初始化更新状态
+        profile_updated = False
+        password_updated = False
         updates = {}
-        update_made = False
 
-        # 更新昵称
+        # 更新基本信息
         if 'nickname' in data:
             updates['nickname'] = data['nickname']
-            update_made = True
-
-        # 更新简介
         if 'intro' in data:
             updates['intro'] = data['intro']
-            update_made = True
 
-        # 如果有需要更新的基本信息
-        if update_made:
+        if updates:
             profile_result = UserService.update_user_profile(username, updates.get('nickname'), updates.get('intro'))
             if profile_result is None:
                 return jsonify({'error': 'Failed to update profile'}), 500
+            profile_updated = True
 
-        # 更新密码（如果提供）
-        password_updated = False
-        if data.get('oldPassword') and data.get('newPassword'):
-            password_result = UserService.update_password(username, data['oldPassword'], data['newPassword'])
+        # 更新头像（文件上传）
+        if 'avatar' in request.files:
+            file = request.files['avatar']
+            if not allowed_file(file.filename):
+                return jsonify({'error': 'Invalid file type'}), 400
+
+            # 头像文件名与用户名关联（用用户名作为文件名的一部分）
+            file_extension = file.filename.rsplit('.', 1)[1].lower()
+            avatar_filename = f"{username}_avatar.{file_extension}"
+
+            # 保存文件（文件路径与用户名相关联，存储到用户文件夹下）
+            file_url = save_file(file, folder=f"user_avatars/{username}", filename=avatar_filename)
+            if not file_url:
+                return jsonify({'error': 'Failed to save avatar'}), 500
+
+            # # 将头像的 URL 更新到用户信息中
+            avatar_result = UserService.update_avatar(username, file_url)
+            if avatar_result is None:
+                return jsonify({'error': 'Failed to update avatar'}), 500
+            updates['avatar'] = file_url
+            profile_updated = True
+
+        # 更新密码
+        old_password = data.get('oldPassword')
+        new_password = data.get('newPassword')
+        confirm_password = data.get('confirmPassword')
+
+        if old_password or new_password or confirm_password:
+            if not old_password or not new_password or not confirm_password:
+                return jsonify({'error': 'All password fields are required'}), 400
+            if new_password != confirm_password:
+                return jsonify({'error': 'New password and confirmation do not match'}), 400
+
+            password_result = UserService.update_password(username, old_password, new_password)
             if password_result is None:
                 return jsonify({'error': 'Failed to update password'}), 401
             password_updated = True
@@ -361,8 +402,9 @@ def update_user():
             'code': 200,
             'message': 'Update successful',
             'data': {
-                'profile_updated': update_made,
-                'password_updated': password_updated
+                'profile_updated': profile_updated,
+                'password_updated': password_updated,
+                'updated_fields': updates
             }
         })
 
@@ -370,49 +412,6 @@ def update_user():
         logger.error(f"Update user error: {e}")
         return jsonify({'error': str(e)}), 500
 
-
-@app.route('/upload/avatar', methods=['POST'])
-def upload_avatar():
-    try:
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file uploaded'}), 400
-
-        file = request.files['file']
-        if not file or not allowed_file(file.filename):
-            return jsonify({'error': 'Invalid file type'}), 400
-
-        # 从请求头获取用户名
-        auth_header = request.headers.get('Authorization')
-        if not auth_header or not auth_header.startswith('Bearer '):
-            return jsonify({'error': 'Unauthorized'}), 401
-
-        # 简化的 token 解析
-        username = auth_header.split('Bearer_')[1]  # 直接获取用户名部分
-
-        # 获取用户信息
-        user = UserService.get_user_by_username(username)
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-
-        # 保存新头像
-        file_url = save_file(file)
-        if not file_url:
-            return jsonify({'error': 'Failed to save file'}), 500
-
-        # 更新数据库中的头像URL
-        result = UserService.update_avatar(username, file_url)
-        if result is None:
-            return jsonify({'error': 'Failed to update avatar in database'}), 500
-
-        return jsonify({
-            'code': 200,
-            'message': '头像上传成功',
-            'data': {'url': file_url}
-        })
-
-    except Exception as e:
-        logger.error(f"Upload avatar error: {e}")
-        return jsonify({'error': str(e)}), 500
 
 @app.route('/verify-security', methods=['POST'])
 def verify_security():
@@ -455,7 +454,7 @@ def upload_audio():
         playlist_type = request.form.get('playlist_type')
         pic_url = 'burger.jpg'
 
-        print("/upload/audio：",username, files)
+        print("/upload/audio：", username, files)
 
         if not username or not files:
             return jsonify({'error': 'Missing username or audio files'}), 400
@@ -482,6 +481,7 @@ def upload_audio():
                 INSERT INTO audio_files (user_id, filename, duration, file_path, artist, playlist_type,pic_url)
                 VALUES (%s, %s, %s, %s,%s, %s, %s)
             """
+<<<<<<< Updated upstream
             # cursor.execute(query, (user_id, filename, duration, file_path, artist, playlist_type,pic_url))
             # conn.commit()
             # cursor.close()
@@ -489,6 +489,12 @@ def upload_audio():
 
             params = (user_id, filename, duration, file_path, artist, playlist_type,pic_url)
             result = DatabaseManager.execute_query(query, params)
+=======
+            cursor.execute(query, (user_id, filename, duration, file_path, artist, playlist_type, pic_url))
+            conn.commit()
+            cursor.close()
+            conn.close()
+>>>>>>> Stashed changes
 
         if artist != '未知歌手':
             return jsonify({
@@ -503,13 +509,14 @@ def upload_audio():
 
         # 返回结果
         response = {
-            'message':"检索成功",
+            'message': "检索成功",
         }
         return jsonify(response), 200
 
     except Exception as e:
         logger.error(f"Error uploading audio files: {e}")
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/audio/<audio_id>', methods=['GET'])
 def get_audio(audio_id):
@@ -534,7 +541,8 @@ def get_audio(audio_id):
     except Exception as e:
         logger.error(f"Error fetching audio file: {e}")
         return jsonify({'error': str(e)}), 500
-    
+
+
 @app.route('/logout', methods=['GET'])
 def logout():
     try:
@@ -545,6 +553,7 @@ def logout():
     except Exception as e:
         logger.error(f"Logout error: {e}")
         return jsonify({'error': 'Logout failed'}), 500
+
 
 # 根据用户、歌单获取歌曲
 @app.route('/api/user/songs', methods=['GET'])
@@ -644,6 +653,7 @@ def get_user_songs():
     except Exception as e:
         logger.error(f"Error getting user songs: {e}")
         return jsonify({'error': str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
