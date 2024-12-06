@@ -29,13 +29,9 @@ if not os.path.exists(UPLOAD_AUDIO_FOLDER):
 DB_CONFIG = {
     'host': '127.0.0.1',  # 使用本地数据库
     'user': 'root',
-<<<<<<< Updated upstream
     'password': '123qweQWE!',  # 替换为你的密码
     # 'password': 'loveat2024a+.',
-=======
-    # 'password': '123qweQWE!',  # 替换为你的密码
-    'password': '',
->>>>>>> Stashed changes
+    # 'password': '',
     'database': 'user_auth',
     'port': 3306
 }
@@ -242,13 +238,9 @@ class UserService:
             logger.error(f"Error updating avatar: {e}")
             return None
 
-
-<<<<<<< Updated upstream
 class MusicService:
     pass
 
-=======
->>>>>>> Stashed changes
 @app.route('/uploads/avatars/<filename>')
 def uploaded_file(filename):
     """获取上传的文件"""
@@ -481,20 +473,9 @@ def upload_audio():
                 INSERT INTO audio_files (user_id, filename, duration, file_path, artist, playlist_type,pic_url)
                 VALUES (%s, %s, %s, %s,%s, %s, %s)
             """
-<<<<<<< Updated upstream
-            # cursor.execute(query, (user_id, filename, duration, file_path, artist, playlist_type,pic_url))
-            # conn.commit()
-            # cursor.close()
-            # conn.close()
 
             params = (user_id, filename, duration, file_path, artist, playlist_type,pic_url)
             result = DatabaseManager.execute_query(query, params)
-=======
-            cursor.execute(query, (user_id, filename, duration, file_path, artist, playlist_type, pic_url))
-            conn.commit()
-            cursor.close()
-            conn.close()
->>>>>>> Stashed changes
 
         if artist != '未知歌手':
             return jsonify({
