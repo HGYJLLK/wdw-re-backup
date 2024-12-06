@@ -22,12 +22,15 @@ ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'flac'}
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
+if not os.path.exists(UPLOAD_AUDIO_FOLDER):
+    os.makedirs(UPLOAD_AUDIO_FOLDER)
+
 # 数据库配置
 DB_CONFIG = {
     'host': '127.0.0.1',  # 使用本地数据库
     'user': 'root',
-    # 'password': '123qweQWE!',  # 替换为你的密码
-    'password': 'loveat2024a+.',
+    'password': '123qweQWE!',  # 替换为你的密码
+    # 'password': 'loveat2024a+.',
     'database': 'user_auth',
     'port': 3306
 }
@@ -76,7 +79,7 @@ def save_audio_file(file):
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             original_filename = secure_filename(file.filename)
             filename = f"{timestamp}_{original_filename}"
-            file_path = os.path.join(UPLOAD_FOLDER, filename)
+            file_path = os.path.join(UPLOAD_AUDIO_FOLDER, filename)
 
             # 确保目录存在
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -228,6 +231,10 @@ class UserService:
         except Exception as e:
             logger.error(f"Error updating avatar: {e}")
             return None
+
+
+class MusicService:
+    pass
 
 @app.route('/uploads/avatars/<filename>')
 def uploaded_file(filename):
@@ -469,16 +476,19 @@ def upload_audio():
             user_id = UserService.get_user_by_username(username)['id']
 
             # 保存到数据库
-            conn = DatabaseManager.get_connection()
-            cursor = conn.cursor()
+            # conn = DatabaseManager.get_connection()
+            # cursor = conn.cursor()
             query = """
                 INSERT INTO audio_files (user_id, filename, duration, file_path, artist, playlist_type,pic_url)
                 VALUES (%s, %s, %s, %s,%s, %s, %s)
             """
-            cursor.execute(query, (user_id, filename, duration, file_path, artist, playlist_type,pic_url))
-            conn.commit()
-            cursor.close()
-            conn.close()
+            # cursor.execute(query, (user_id, filename, duration, file_path, artist, playlist_type,pic_url))
+            # conn.commit()
+            # cursor.close()
+            # conn.close()
+
+            params = (user_id, filename, duration, file_path, artist, playlist_type,pic_url)
+            result = DatabaseManager.execute_query(query, params)
 
         if artist != '未知歌手':
             return jsonify({
@@ -505,13 +515,15 @@ def upload_audio():
 def get_audio(audio_id):
     """根据音频ID生成音频链接"""
     try:
-        conn = DatabaseManager.get_connection()
-        cursor = conn.cursor(dictionary=True)
+        # conn = DatabaseManager.get_connection()
+        # cursor = conn.cursor(dictionary=True)
         query = "SELECT file_path FROM audio_files WHERE id = %s"
-        cursor.execute(query, (audio_id,))
-        result = cursor.fetchone()
-        cursor.close()
-        conn.close()
+        # cursor.execute(query, (audio_id,))
+        # result = cursor.fetchone()
+        # cursor.close()
+        # conn.close()
+
+        result = DatabaseManager.execute_query(query, (audio_id,), fetch=True)
 
         if not result:
             return jsonify({'error': 'Audio not found'}), 404
@@ -540,14 +552,26 @@ def get_user_songs():
     try:
         username = request.args.get('username')
         playlist_type = request.args.get('playlist_type')
+        print("/api/user/songs：",username, playlist_type)
 
         if not username or not playlist_type:
             return jsonify({'error': 'Missing username or playlist_type'}), 400
 
         # 获取用户id
-        user_id = UserService.get_user_by_username(username)['id']
-        if not user_id:
-            return jsonify({'error': 'User not found'}), 404
+        # user_id = UserService.get_user_by_username(username)['id']
+        # if not user_id:
+        #     return jsonify({'error': 'User not found'}), 404
+
+        # 获取用户 id
+        with DatabaseManager.get_connection() as conn:
+            with conn.cursor() as cursor:
+                query = "SELECT id FROM users WHERE username = %s"
+                cursor.execute(query, (username,))
+                user = cursor.fetchone()
+
+                if not user:
+                    return jsonify({'error': 'User not found'}), 404
+                user_id = user[0]
 
         # 获取歌单信息
         '''
@@ -574,18 +598,20 @@ def get_user_songs():
         }
         '''
 
-        conn = DatabaseManager.get_connection()
-        cursor = conn.cursor()
+        # conn = DatabaseManager.get_connection()
+        # cursor = conn.cursor()
         query = """
             SELECT id, filename, duration, artist, playlist_type,pic_url
             FROM audio_files
             WHERE user_id = %s AND playlist_type = %s
         """
-        cursor.execute(query, (user_id, playlist_type))
-        conn.commit()
-        result = cursor.fetchall()
-        cursor.close()
-        conn.close()
+        # cursor.execute(query, (user_id, playlist_type))
+        # conn.commit()
+        # result = cursor.fetchall()
+        # cursor.close()
+        # conn.close()
+
+        result = DatabaseManager.execute_query(query, (user_id, playlist_type), fetch=True)
 
         songs = []
         for row in result:
@@ -602,12 +628,17 @@ def get_user_songs():
                 'st': 0
             })
 
-        response = {
-            'songsDetail': {
-                'songs': songs,
-                'privileges': [{'chargeInfoList': [{'chargeType': 0}], 'st': 0} for _ in songs]
+        if songs.__len__() == 0:
+            response = {
+                'songsDetail': {}
             }
-        }
+        else:
+            response = {
+                'songsDetail': {
+                    'songs': songs,
+                    'privileges': [{'chargeInfoList': [{'chargeType': 0}], 'st': 0} for _ in songs]
+                }
+            }
         return jsonify(response), 200
 
     except Exception as e:
