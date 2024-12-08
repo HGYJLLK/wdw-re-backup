@@ -213,13 +213,24 @@ class UserService:
             return None
 
     @staticmethod
-    def update_password(username, old_password, new_password):
-        """更新密码"""
+    def update_password(username, new_password, old_password=None):
+        """
+        更新密码，兼容直接重置密码和验证旧密码的更新操作。
+        :param username: 用户名
+        :param new_password: 新密码
+        :param old_password: 旧密码（可选）
+        :return: 更新结果
+        """
         try:
             user = UserService.get_user_by_username(username)
-            if not user or user['password'] != old_password:
+            if not user:
                 return None
 
+            # 如果提供了旧密码，则验证旧密码
+            if old_password and user['password'] != old_password:
+                return None
+
+            # 更新密码
             query = "UPDATE users SET password = %s WHERE username = %s"
             params = (new_password, username)
             return DatabaseManager.execute_query(query, params)
@@ -394,7 +405,7 @@ def update_user():
             if new_password != confirm_password:
                 return jsonify({'error': 'New password and confirmation do not match'}), 400
 
-            password_result = UserService.update_password(username, old_password, new_password)
+            password_result = UserService.update_password(username, new_password,old_password)
             if password_result is None:
                 return jsonify({'error': 'Failed to update password'}), 401
             password_updated = True
@@ -643,6 +654,34 @@ def get_user_songs():
     except Exception as e:
         logger.error(f"Error getting user songs: {e}")
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/reset-password', methods=['POST'])
+def reset_password():
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        new_password = data.get('new_password')
+
+        # Validate input
+        if not all([username, new_password]):
+            return jsonify({'error': 'Missing required fields'}), 400
+
+        # Get user
+        user = UserService.get_user_by_username(username)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Update password
+        result = UserService.update_password(username, new_password)
+        if result is not None:
+            return jsonify({'message': 'Password reset successful'}), 200
+        else:
+            return jsonify({'error': 'Password reset failed'}), 500
+
+    except Exception as e:
+        logger.error(f"Password reset error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 if __name__ == '__main__':
