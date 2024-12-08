@@ -69,7 +69,7 @@ def save_file(file, folder, filename):
             file.save(file_path)
 
             # 返回相对URL路径
-            return f"/uploads/{folder}/{filename}"
+            return f"/{folder}/{filename}"
         except Exception as e:
             logger.error(f"Error saving file: {e}")
             return None
@@ -373,11 +373,14 @@ def update_user():
             if not file_url:
                 return jsonify({'error': 'Failed to save avatar'}), 500
 
+            # 将头像的 URL 转换为完整的 HTTP 链接
+            full_avatar_url = f"http://localhost:5001{file_url}"
+
             # # 将头像的 URL 更新到用户信息中
-            avatar_result = UserService.update_avatar(username, file_url)
+            avatar_result = UserService.update_avatar(username, full_avatar_url)
             if avatar_result is None:
                 return jsonify({'error': 'Failed to update avatar'}), 500
-            updates['avatar'] = file_url
+            updates['avatar'] = full_avatar_url
             profile_updated = True
 
         # 更新密码
