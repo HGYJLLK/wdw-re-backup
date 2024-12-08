@@ -36,7 +36,7 @@ def update_user(cookies):
         'intro': 'Updated intro text.',
         'oldPassword': 'password123',
         'newPassword': 'newpassword456',
-        'confirmPassword': 'newpassword456'
+        'confirmPassword': 'newpassword456',
     }
     # If you want to upload an avatar, you'd include a file
     # Adjust the path to the image you want to upload

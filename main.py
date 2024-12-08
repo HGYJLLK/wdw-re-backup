@@ -13,7 +13,7 @@ app = Flask(__name__)
 CORS(app)
 
 # 配置上传文件夹
-UPLOAD_FOLDER = 'uploads/avatars'
+UPLOAD_FOLDER = 'user_avatars'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 UPLOAD_AUDIO_FOLDER = 'uploads/audio'
 ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'flac'}
@@ -202,7 +202,7 @@ class UserService:
                 params.append(intro)
 
             if not updates:
-                return True  # 没有要更新的内容，视为成功
+                return True
 
             query = f"UPDATE users SET {', '.join(updates)} WHERE username = %s"
             params.append(username)
@@ -238,13 +238,14 @@ class UserService:
             logger.error(f"Error updating avatar: {e}")
             return None
 
-class MusicService:
-    pass
-
-@app.route('/uploads/avatars/<filename>')
-def uploaded_file(filename):
-    """获取上传的文件"""
-    return send_from_directory(UPLOAD_FOLDER, filename)
+@app.route('/user_avatars/<username>/<filename>')
+def uploaded_file(username, filename):
+    """根据用户名获取头像"""
+    user_folder = os.path.join(UPLOAD_FOLDER, username)
+    try:
+        return send_from_directory(user_folder, filename)
+    except FileNotFoundError:
+        return jsonify({'error': 'File not found'}), 404
 
 
 @app.route('/register', methods=['POST'])
@@ -298,10 +299,15 @@ def login():
         # 生成简单的 token
         token = f"Bearer_{username}"  # 简化 token 格式
 
+         # 构建头像 HTTP 链接
+        avatar_url = user.get('avatar_url', '')
+        if avatar_url:
+            avatar_url = f"http://localhost:5001/user_avatars/{username}/{os.path.basename(avatar_url)}"
+
         user_info = {
             'username': user['username'],
             'nickname': user.get('nickname', user['username']),
-            'avatarUrl': user.get('avatar_url', ''),
+            'avatar': avatar_url,  # 返回完整的头像 HTTP 链接
             'intro': user.get('intro', ''),
             'security_question': user.get('security_question', '')
         }
