@@ -571,7 +571,6 @@ def get_audio():
         logger.error(f"Error fetching audio file URL: {e}")
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/logout', methods=['GET'])
 def logout():
     try:
@@ -582,7 +581,6 @@ def logout():
     except Exception as e:
         logger.error(f"Logout error: {e}")
         return jsonify({'error': 'Logout failed'}), 500
-
 
 # 根据用户、歌单获取歌曲
 @app.route('/api/user/songs', methods=['GET'])
