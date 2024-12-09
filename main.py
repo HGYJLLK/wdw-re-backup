@@ -29,8 +29,8 @@ if not os.path.exists(UPLOAD_AUDIO_FOLDER):
 DB_CONFIG = {
     'host': '127.0.0.1',  # 使用本地数据库
     'user': 'root',
-    # 'password': '123qweQWE!',  # 替换为你的密码
-    'password': 'loveat2024a+.',
+    'password': '123qweQWE!',  # 替换为你的密码
+    # 'password': 'loveat2024a+.',
     # 'password': '',
     'database': 'user_auth',
     'port': 3306
@@ -75,27 +75,29 @@ def save_file(file, folder, filename):
             return None
     return None
 
-
-def save_audio_file(file):
+def save_audio_file(file, username):
     """保存上传的音频文件"""
     if file and allowed_audio_file(file.filename):
         try:
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             original_filename = secure_filename(file.filename)
-            filename = f"{timestamp}_{original_filename}"
-            file_path = os.path.join(UPLOAD_AUDIO_FOLDER, filename)
+            user_folder = os.path.join(UPLOAD_AUDIO_FOLDER, username)
+            file_path = os.path.join(user_folder, original_filename)
 
-            # 确保目录存在
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            # 确保用户目录存在
+            os.makedirs(user_folder, exist_ok=True)
+
+            # 如果文件已存在，则跳过保存
+            if os.path.exists(file_path):
+                logger.info(f"File {original_filename} already exists for user {username}. Skipping save.")
+                return None, None
 
             # 保存文件
             file.save(file_path)
-            return file_path, filename
+            return file_path, original_filename
         except Exception as e:
-            logger.error(f"Error saving audio file: {e}")
+            logger.error(f"Error saving audio file for user {username}: {e}")
             return None, None
     return None, None
-
 
 def get_audio_duration(file_path):
     """获取音频时长（毫秒）"""
@@ -484,64 +486,56 @@ def upload_audio():
     try:
         username = request.form.get('username')
         files = request.files.getlist('audio_files')
+
         # 歌手名
         artist = request.form.get('artist') or '未知歌手'
         # 歌单，云歌单：1，本地歌单：2，喜欢的歌单：3
         playlist_type = request.form.get('playlist_type')
         pic_url = 'burger.jpg'
 
-        print("/upload/audio：", username, files)
-
         if not username or not files:
             return jsonify({'error': 'Missing username or audio files'}), 400
+
+        user = UserService.get_user_by_username(username)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        user_id = user['id']
 
         for file in files:
             if not allowed_audio_file(file.filename):
                 continue
 
+            # 检查是否存在同名文件
+            query = "SELECT * FROM audio_files WHERE user_id = %s AND filename = %s AND playlist_type = %s"
+            params = (user_id, file.filename, playlist_type)
+            existing_files = DatabaseManager.execute_query(query, params, fetch=True)
+
+            if existing_files:
+                logger.info(f"User {username} already has a file named {file.filename}. Skipping save.")
+                continue
+
             # 保存音频文件
-            file_path, filename = save_audio_file(file)
+            file_path, filename = save_audio_file(file, username)
             if not file_path:
                 continue
 
             # 获取音频时长
             duration = get_audio_duration(file_path)
 
-            # 获取用户Id
-            user_id = UserService.get_user_by_username(username)['id']
-
             # 保存到数据库
-            # conn = DatabaseManager.get_connection()
-            # cursor = conn.cursor()
             query = """
-                INSERT INTO audio_files (user_id, filename, duration, file_path, artist, playlist_type,pic_url)
-                VALUES (%s, %s, %s, %s,%s, %s, %s)
+                INSERT INTO audio_files (user_id, filename, duration, file_path,artist, playlist_type,pic_url)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
             """
-
             params = (user_id, filename, duration, file_path, artist, playlist_type,pic_url)
-            result = DatabaseManager.execute_query(query, params)
+            DatabaseManager.execute_query(query, params)
 
-        if artist != '未知歌手':
-            return jsonify({
-                'message': '音频上传成功',
-                'data': {
-                    'artist': artist,
-                    'duration': duration,
-                    'filename': filename,
-                    'file_path': file_path
-                }
-            }), 200
-
-        # 返回结果
-        response = {
-            'message': "检索成功",
-        }
-        return jsonify(response), 200
+        return jsonify({'message': 'Audio files processed successfully'}), 200
 
     except Exception as e:
         logger.error(f"Error uploading audio files: {e}")
         return jsonify({'error': str(e)}), 500
-
 
 @app.route('/audio/<audio_id>', methods=['GET'])
 def get_audio(audio_id):
@@ -585,6 +579,7 @@ def logout():
 def get_user_songs():
     try:
         username = request.args.get('username')
+        # 云歌单：1 本地歌单：2 我的最爱歌单：3
         playlist_type = request.args.get('playlist_type')
         print("/api/user/songs：",username, playlist_type)
 
@@ -606,6 +601,8 @@ def get_user_songs():
                 if not user:
                     return jsonify({'error': 'User not found'}), 404
                 user_id = user[0]
+        
+        print("user_id:", user_id)
 
         # 获取歌单信息
         '''
@@ -646,6 +643,16 @@ def get_user_songs():
         # conn.close()
 
         result = DatabaseManager.execute_query(query, (user_id, playlist_type), fetch=True)
+
+        # 构建完整的 HTTP 链接
+        host = request.host_url.rstrip('/')  # 获取当前主机地址
+        for row in result:
+            # 去掉 filename 的后缀
+            row['filename'] = os.path.splitext(row['filename'])[0]
+
+            # 如果 pic_url 存在，构建 HTTP 链接
+            if row['pic_url']:
+                row['pic_url'] = f"{host}/static/images/{row['pic_url']}"  # 假设图片存储在 /static/images 目录下
 
         songs = []
         for row in result:
