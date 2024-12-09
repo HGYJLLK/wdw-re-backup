@@ -15,7 +15,7 @@ CORS(app)
 # 配置上传文件夹
 UPLOAD_FOLDER = 'user_avatars'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-UPLOAD_AUDIO_FOLDER = 'uploads/audio'
+UPLOAD_AUDIO_FOLDER = 'static/audio'
 ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'flac'}
 
 # 确保上传文件夹存在
@@ -537,10 +537,11 @@ def upload_audio():
         logger.error(f"Error uploading audio files: {e}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/audio/<audio_id>', methods=['GET'])
-def get_audio(audio_id):
+@app.route('/audio', methods=['GET'])
+def get_audio():
     """根据音频ID生成音频链接"""
     try:
+        audio_id = request.args.get('id')
         # conn = DatabaseManager.get_connection()
         # cursor = conn.cursor(dictionary=True)
         query = "SELECT file_path FROM audio_files WHERE id = %s"
@@ -554,11 +555,20 @@ def get_audio(audio_id):
         if not result:
             return jsonify({'error': 'Audio not found'}), 404
 
-        file_path = result['file_path']
-        return send_from_directory(os.path.dirname(file_path), os.path.basename(file_path))
+        # 获取文件路径
+        file_path = result[0]['file_path']
 
+        # 检查文件是否存在
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'File not found on server'}), 404
+
+        # 构建完整的 HTTP URL
+        host = request.host_url.rstrip('/')  # 获取主机地址
+        file_url = f"{host}/static/{os.path.relpath(file_path, start='static')}"
+
+        return jsonify({'musicUrl': file_url}), 200
     except Exception as e:
-        logger.error(f"Error fetching audio file: {e}")
+        logger.error(f"Error fetching audio file URL: {e}")
         return jsonify({'error': str(e)}), 500
 
 
