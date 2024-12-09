@@ -29,8 +29,8 @@ if not os.path.exists(UPLOAD_AUDIO_FOLDER):
 DB_CONFIG = {
     'host': '127.0.0.1',  # 使用本地数据库
     'user': 'root',
-    'password': '123qweQWE!',  # 替换为你的密码
-    # 'password': 'loveat2024a+.',
+    # 'password': '123qweQWE!',  # 替换为你的密码
+    'password': 'loveat2024a+.',
     # 'password': '',
     'database': 'user_auth',
     'port': 3306
@@ -248,6 +248,30 @@ class UserService:
         except Exception as e:
             logger.error(f"Error updating avatar: {e}")
             return None
+    
+    @staticmethod
+    def delete_user_from_db(username):
+        """从数据库中删除用户"""
+        try:
+            # 确保用户存在
+            user = UserService.get_user_by_username(username)
+            if not user:
+                logger.error(f"User {username} not found")
+                return False
+
+            # 删除用户
+            query = "DELETE FROM users WHERE username = %s"
+            params = (username,)
+            result = DatabaseManager.execute_query(query, params)
+            if result:
+                logger.info(f"User {username} deleted successfully")
+                return True
+            else:
+                logger.error(f"Failed to delete user {username}")
+                return False
+        except Exception as e:
+            logger.error(f"Error deleting user {username}: {e}")
+            return False
 
 @app.route('/user_avatars/<username>/<filename>')
 def uploaded_file(username, filename):
@@ -683,6 +707,19 @@ def reset_password():
         logger.error(f"Password reset error: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@app.route('/api/user/delete', methods=['POST'])
+def delete_user():
+    username = request.json.get('username')
+    if not username:
+        return jsonify({'message': 'Username is required'}), 400
+
+    # Assume we have a function that deletes the user from the database
+    # Example: delete_user_from_db(username)
+    user_deleted = UserService.delete_user_from_db(username)
+    if user_deleted:
+        return jsonify({'message': 'User deleted successfully'}), 200
+    else:
+        return jsonify({'message': 'User not found'}), 404
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
