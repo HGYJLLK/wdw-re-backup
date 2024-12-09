@@ -485,16 +485,18 @@ def verify_security():
 def upload_audio():
     try:
         username = request.form.get('username')
-        files = request.files.getlist('audio_files')
+        files = request.files.getlist('audio_files') or []
+        is_self = request.form.get('is_self')
 
         # 歌手名
         artist = request.form.get('artist') or '未知歌手'
+        song_name = request.form.get('song_name') or ''
         # 歌单，云歌单：1，本地歌单：2，喜欢的歌单：3
         playlist_type = request.form.get('playlist_type')
-        pic_url = 'burger.jpg'
+        pic_url = request.form.get('pic_url') or 'burger.jpg'
 
-        if not username or not files:
-            return jsonify({'error': 'Missing username or audio files'}), 400
+        if not username:
+            return jsonify({'error': 'Missing username'}), 400
 
         user = UserService.get_user_by_username(username)
         if not user:
@@ -523,13 +525,31 @@ def upload_audio():
             # 获取音频时长
             duration = get_audio_duration(file_path)
 
+            # 生成唯一音频id，当前时间戳 + 随机数
+            musics_id = f"{int(time.time())}_{random.randint(1000, 9999)}"
+
             # 保存到数据库
             query = """
-                INSERT INTO audio_files (user_id, filename, duration, file_path,artist, playlist_type,pic_url)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO audio_files (user_id, filename, duration, file_path,artist, playlist_type,pic_url,is_self,music_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s,%s)
             """
-            params = (user_id, filename, duration, file_path, artist, playlist_type,pic_url)
+            params = (user_id, filename, duration, file_path, artist, playlist_type,pic_url,is_self,musics_id)
             DatabaseManager.execute_query(query, params)
+
+        # 如果files数组为空和存在歌名和is_self为true，在云歌单查找这首歌的music_id，复制一份数据，并且更改playlist_type为playlist_type
+        if not files and song_name and is_self == 'true':
+            query = "SELECT * FROM audio_files WHERE song_name = %s AND playlist_type = 1"
+            params = (song_name,)
+            existing_files = DatabaseManager.execute_query(query, params, fetch=True)
+            if existing_files:
+                music_id = existing_files[0]['music_id']
+                query = """
+                    INSERT INTO audio_files (user_id, filename, duration, file_path,artist, playlist_type,pic_url,is_self,music_id)
+                    VALUES (%s, %s, %s,%s)
+                """
+                params = (user_id, existing_files[0]['filename'], existing_files[0]['duration'], existing_files[0]['file_path'], artist, playlist_type,pic_url,is_self,music_id)
+                DatabaseManager.execute_query(query, params)
+                
 
         return jsonify({'message': 'Audio files processed successfully'}), 200
 
@@ -640,7 +660,7 @@ def get_user_songs():
         # conn = DatabaseManager.get_connection()
         # cursor = conn.cursor()
         query = """
-            SELECT id, filename, duration, artist, playlist_type,pic_url
+            SELECT music_id, filename, duration, artist, playlist_type,pic_url,is_self
             FROM audio_files
             WHERE user_id = %s AND playlist_type = %s
         """
@@ -665,14 +685,14 @@ def get_user_songs():
         songs = []
         for row in result:
             songs.append({
-                'id': row['id'],
+                'id': row['music_id'],
                 'name': row['filename'],
                 'ar': [{'name': row['artist']}],
                 'al': {'picUrl': row['pic_url']},
                 'dt': row['duration'],
                 'mv': 0,
                 'alia': [],
-                'self': True,
+                'self': row['is_self'],
                 'fee': 8,
                 'st': 0
             })

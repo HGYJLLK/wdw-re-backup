@@ -32,6 +32,7 @@ intro: 用户简介，可为空，使用text类型
 CREATE TABLE `audio_files` (
   `id` INT NOT NULL AUTO_INCREMENT, -- 音频的唯一标识
   `user_id` INT NOT NULL,           -- 关联的用户 ID
+  `music_id` INT NOT NULL,          -- 关联的歌曲 ID
   `filename` VARCHAR(255) NOT NULL,     -- 音频文件名
   `file_path` VARCHAR(255) NOT NULL, -- 音频文件的存储路径
   `pic_url` VARCHAR(255) DEFAULT '', -- 默认封面图路径
@@ -39,15 +40,20 @@ CREATE TABLE `audio_files` (
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- 上传时间
   `artist` varchar(255) DEFAULT NULL,
   `playlist_type` int,
+  is_self varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) -- 与 users 表建立关联
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 表字段说明：
 id: 音频的唯一标识。
+music_id:音频id，关联到歌曲表的id字段，用于标识该音频属于哪首歌曲。
 user_id: 外键，关联到用户表的 id 字段，用于标识该音频属于哪个用户。
 filename: 音频文件的名称（通常可以直接用上传文件的名称）。
 file_path: 音频文件的存储路径，后端在保存文件后填入该路径。
 pic_url: 封面图的 URL。
 duration: 音频的时长，单位为毫秒。
 created_at: 记录音频上传的时间。
+artist: 歌手名。
+playlist_type: 歌单类型，1为云歌单，2为本地歌单，3为喜欢歌单
+is_self: 是否为自己上传的音频，true为自己上传的音频，false为非自己上传的音频
