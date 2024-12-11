@@ -584,8 +584,13 @@ def upload_audio():
 
             # 保存音频文件
             file_path, filename = save_audio_file(file, username)
+
             if not file_path:
                 continue
+
+            # 处理filename,test.mp3 -> test
+            print("filename:",filename)
+            filename = os.path.splitext(filename)[0]
 
             # 获取音频时长
             duration = get_audio_duration(file_path)
@@ -643,6 +648,8 @@ def add_to_playlist():
         pic_url = data.get('pic_url')
         is_self = data.get('is_self')
 
+        print(data,"data")
+
         if not all([username, playlist_type]):
             return jsonify({'error': 'Missing required fields'}), 400
         
@@ -650,6 +657,14 @@ def add_to_playlist():
         user_id = UserService.get_user_by_username(username)['id']
         if not user_id:
             return jsonify({'error': 'User not found'}), 404
+
+        # 查询是否已存在该歌曲
+        query = "SELECT * FROM audio_files WHERE user_id = %s AND filename = %s AND playlist_type = %s"
+        params = (user_id, song_name, playlist_type)
+        existing_files = DatabaseManager.execute_query(query, params, fetch=True)
+
+        if existing_files:
+            return jsonify({'message': 'Audio already exists in playlist'}), 400
         
         if not is_self:
             # api音频，直接添加到歌单
@@ -940,7 +955,6 @@ def delete_user_songs():
 
     return jsonify({'message': 'Song deleted successfully'}), 200
 
-"""获取test_api第一首歌的music_id"""
 @app.route('/api/audio/search', methods=['GET'])
 def get_music_id():
     query = """
