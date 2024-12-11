@@ -32,9 +32,9 @@ intro: 用户简介，可为空，使用text类型
 CREATE TABLE `audio_files` (
   `id` INT NOT NULL AUTO_INCREMENT, -- 音频的唯一标识
   `user_id` INT NOT NULL,           -- 关联的用户 ID
-  `music_id` INT NOT NULL,          -- 关联的歌曲 ID
+  `music_id` INT DEFAULT NULL,          -- 关联的歌曲 ID
   `filename` VARCHAR(255) NOT NULL,     -- 音频文件名
-  `file_path` VARCHAR(255) NOT NULL, -- 音频文件的存储路径
+  `file_path` VARCHAR(255) DEFAULT NULL, -- 音频文件的存储路径
   `pic_url` VARCHAR(255) DEFAULT '', -- 默认封面图路径
   `duration` INT NOT NULL,          -- 音频时长（毫秒）
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- 上传时间

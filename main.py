@@ -1,4 +1,4 @@
-# pip install flask flask-cors mysql-connector-python pydub
+# pip install flask flask-cors mysql-connector-python pydub pymediainfo ffmpeg-python librosa
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import mysql.connector
@@ -8,6 +8,12 @@ import os
 from werkzeug.utils import secure_filename
 # 获取音频时长
 from pydub.utils import mediainfo
+import ffmpeg
+import librosa
+import time
+import random
+import urllib.parse
+import shutil
 
 app = Flask(__name__)
 CORS(app)
@@ -29,8 +35,8 @@ if not os.path.exists(UPLOAD_AUDIO_FOLDER):
 DB_CONFIG = {
     'host': '127.0.0.1',  # 使用本地数据库
     'user': 'root',
-    'password': '123qweQWE!',  # 替换为你的密码
-    # 'password': 'loveat2024a+.',
+    # 'password': '123qweQWE!',  # 替换为你的密码
+    'password': 'loveat2024a+.',
     # 'password': '',
     'database': 'user_auth',
     'port': 3306
@@ -46,12 +52,10 @@ def allowed_file(filename):
     return '.' in filename and \
         filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-
 def allowed_audio_file(filename):
-    """检查音频文件类型是否允许"""
-    return '.' in filename and \
-        filename.rsplit('.', 1)[1].lower() in ALLOWED_AUDIO_EXTENSIONS
-
+    """检查文件是否是允许的音频文件类型"""
+    allowed_extensions = {'mp3', 'wav', 'flac', 'aac'}
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
 
 def save_file(file, folder, filename):
     """保存上传的文件"""
@@ -78,8 +82,10 @@ def save_file(file, folder, filename):
 def save_audio_file(file, username):
     """保存上传的音频文件"""
     if file and allowed_audio_file(file.filename):
+        print("保存音频文件：", file, file.filename, username)
         try:
-            original_filename = secure_filename(file.filename)
+            # 如果文件名有'/'，则以'/'为分隔符，取后面的部分作为文件名
+            original_filename = file.filename.split('/')[-1]
             user_folder = os.path.join(UPLOAD_AUDIO_FOLDER, username)
             file_path = os.path.join(user_folder, original_filename)
 
@@ -99,15 +105,38 @@ def save_audio_file(file, username):
             return None, None
     return None, None
 
+
 def get_audio_duration(file_path):
     """获取音频时长（毫秒）"""
+    duration = librosa.get_duration(filename=file_path)
+    duration_ms = duration * 1000  # 转换为毫秒
+    return int(duration_ms)
+
+def get_audio_music_url():
+    """获取音频文件url"""
     try:
-        info = mediainfo(file_path)
-        duration = float(info['duration']) * 1000  # 转换为毫秒
-        return int(duration)
+        query = """
+            SELECT a.file_path 
+            FROM users u
+            JOIN audio_files a ON u.id = a.user_id
+            WHERE u.username = 'test_api'
+            LIMIT 1
+        """
+        params = ()
+        result = DatabaseManager.execute_query(query, params, fetch=True)
+        print("查询结果：", result)
+        if result:
+            file_path = result[0]['file_path']
+            # 构建完整的 HTTP URL
+            host = request.host_url.rstrip('/')  # 获取主机地址
+            file_url = f"{host}/static/{os.path.relpath(file_path, start='static')}"
+            return file_url
+        else:
+            return None  # 没有找到相关音频文件
+
     except Exception as e:
-        logger.error(f"Error getting audio duration: {e}")
-        return 0
+        print(f"Error occurred: {e}")
+        return None
 
 
 class DatabaseManager:
@@ -265,6 +294,7 @@ class UserService:
             query = "DELETE FROM users WHERE username = %s"
             params = (username,)
             result = DatabaseManager.execute_query(query, params)
+            print("删除用户：", result)
             if result:
                 logger.info(f"User {username} deleted successfully")
                 return True
@@ -273,6 +303,36 @@ class UserService:
                 return False
         except Exception as e:
             logger.error(f"Error deleting user {username}: {e}")
+            return False
+
+    @staticmethod
+    def delete_user_data(username):
+        """删除用户数据"""
+        try:
+            # 确保用户存在
+            user = UserService.get_user_by_username(username)
+            if not user:
+                return False
+
+            user_id = user['id']
+
+            # 删除用户头像
+            folder_path = './user_avatars/test_api'
+            if os.path.exists(folder_path):
+                shutil.rmtree(folder_path)
+
+            # 删除用户数据
+            query = "DELETE FROM audio_files WHERE user_id = %s"
+            params = (user_id,)
+            result = DatabaseManager.execute_query(query, params)
+            if result:
+                logger.info(f"User data for {user_id} deleted successfully")
+                return True
+            else:
+                logger.error(f"Failed to delete user data for {user_id}")
+                return False
+        except Exception as e:
+            logger.error(f"Error deleting user data for {user_id}: {e}")
             return False
 
 @app.route('/user_avatars/<username>/<filename>')
@@ -483,17 +543,22 @@ def verify_security():
 
 @app.route('/upload/audio', methods=['POST'])
 def upload_audio():
+    '''
+    1、检索文件夹音频：上传多个音频 / 没有音频（可前端处理）
+    2、上传音频：上传单个音频
+    '''
     try:
         username = request.form.get('username')
-        files = request.files.getlist('audio_files') or []
+        files = request.files.getlist('audio_files')
         is_self = request.form.get('is_self')
 
         # 歌手名
         artist = request.form.get('artist') or '未知歌手'
-        song_name = request.form.get('song_name') or ''
+        # song_name = request.form.get('song_name') or ''
         # 歌单，云歌单：1，本地歌单：2，喜欢的歌单：3
         playlist_type = request.form.get('playlist_type')
-        pic_url = request.form.get('pic_url') or 'burger.jpg'
+        # pic_url = request.form.get('pic_url') or 'burger.jpg'
+        pic_url = 'burger.jpg'
 
         if not username:
             return jsonify({'error': 'Missing username'}), 400
@@ -524,10 +589,10 @@ def upload_audio():
 
             # 获取音频时长
             duration = get_audio_duration(file_path)
+            print("音频时长：",duration)
 
             # 生成唯一音频id，当前时间戳 + 随机数
-            musics_id = f"{int(time.time())}_{random.randint(1000, 9999)}"
-
+            musics_id = int(time.time()) + random.randint(1000, 9999)
             # 保存到数据库
             query = """
                 INSERT INTO audio_files (user_id, filename, duration, file_path,artist, playlist_type,pic_url,is_self,music_id)
@@ -536,25 +601,82 @@ def upload_audio():
             params = (user_id, filename, duration, file_path, artist, playlist_type,pic_url,is_self,musics_id)
             DatabaseManager.execute_query(query, params)
 
-        # 如果files数组为空和存在歌名和is_self为true，在云歌单查找这首歌的music_id，复制一份数据，并且更改playlist_type为playlist_type
-        if not files and song_name and is_self == 'true':
-            query = "SELECT * FROM audio_files WHERE song_name = %s AND playlist_type = 1"
-            params = (song_name,)
-            existing_files = DatabaseManager.execute_query(query, params, fetch=True)
-            if existing_files:
-                music_id = existing_files[0]['music_id']
-                query = """
-                    INSERT INTO audio_files (user_id, filename, duration, file_path,artist, playlist_type,pic_url,is_self,music_id)
-                    VALUES (%s, %s, %s,%s)
-                """
-                params = (user_id, existing_files[0]['filename'], existing_files[0]['duration'], existing_files[0]['file_path'], artist, playlist_type,pic_url,is_self,music_id)
-                DatabaseManager.execute_query(query, params)
+        # # 如果files数组为空和存在歌名和is_self为true，在云歌单查找这首歌的music_id，复制一份数据，并且更改playlist_type为playlist_type
+        # if not files and song_name and is_self == 'true':
+        #     query = "SELECT * FROM audio_files WHERE song_name = %s AND playlist_type = 1"
+        #     params = (song_name,)
+        #     existing_files = DatabaseManager.execute_query(query, params, fetch=True)
+        #     if existing_files:
+        #         music_id = existing_files[0]['music_id']
+        #         query = """
+        #             INSERT INTO audio_files (user_id, filename, duration, file_path,artist, playlist_type,pic_url,is_self,music_id)
+        #             VALUES (%s, %s, %s,%s)
+        #         """
+        #         params = (user_id, existing_files[0]['filename'], existing_files[0]['duration'], existing_files[0]['file_path'], artist, playlist_type,pic_url,is_self,music_id)
+        #         DatabaseManager.execute_query(query, params)
                 
 
         return jsonify({'message': 'Audio files processed successfully'}), 200
 
     except Exception as e:
         logger.error(f"Error uploading audio files: {e}")
+        return jsonify({'error': str(e)}), 500
+
+'''
+添加音频到歌单
+'''
+@app.route('/api/playlist/add', methods=['POST'])
+def add_to_playlist():
+    try:
+        # 音频两种
+        '''
+        1、api音频，包含用户名、添加歌单类型、歌曲名、歌手名、歌曲时长、歌曲封面路径
+        2、自定义音频：包含用户名、添加歌单类型、歌曲名、自定义歌曲声明
+        '''
+        data = request.get_json()
+        username = data.get('username')
+        # music_id = data.get('music_id')
+        playlist_type = data.get('playlist_type')
+        song_name = data.get('song_name')
+        artist = data.get('artist')
+        duration = data.get('duration')
+        pic_url = data.get('pic_url')
+        is_self = data.get('is_self')
+
+        if not all([username, playlist_type]):
+            return jsonify({'error': 'Missing required fields'}), 400
+        
+        # 获取用户id
+        user_id = UserService.get_user_by_username(username)['id']
+        if not user_id:
+            return jsonify({'error': 'User not found'}), 404
+        
+        if not is_self:
+            # api音频，直接添加到歌单
+            query = "insert into audio_files (user_id, filename, duration,artist, playlist_type,pic_url) values (%s, %s, %s, %s, %s, %s)"
+            params = (user_id, song_name, duration, artist, playlist_type,pic_url)
+            DatabaseManager.execute_query(query, params)
+        else:
+            # 自定义音频
+            # 在audio_files表中查找该歌名
+            query = "SELECT * FROM audio_files WHERE user_id = %s AND filename = %s"
+            params = (user_id, song_name)
+            existing_files = DatabaseManager.execute_query(query, params, fetch=True)
+
+            if existing_files:
+                # 歌名存在，复制一份该数据，并且更改playlist_type
+                # music_id = existing_files[0]['music_id']
+                query = """
+                    INSERT INTO audio_files (user_id, filename, duration, file_path,artist, playlist_type,pic_url,is_self,music_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                params = (user_id, existing_files[0]['filename'], existing_files[0]['duration'], existing_files[0]['file_path'], existing_files[0]['artist'], playlist_type,existing_files[0]['pic_url'],is_self,existing_files[0]['music_id'])
+                DatabaseManager.execute_query(query, params)
+
+        return jsonify({'message': 'Audio added to playlist successfully'}), 200
+
+    except Exception as e:
+        logger.error(f"Error adding audio to playlist: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/audio', methods=['GET'])
@@ -564,7 +686,7 @@ def get_audio():
         audio_id = request.args.get('id')
         # conn = DatabaseManager.get_connection()
         # cursor = conn.cursor(dictionary=True)
-        query = "SELECT file_path FROM audio_files WHERE id = %s"
+        query = "SELECT file_path FROM audio_files WHERE music_id = %s"
         # cursor.execute(query, (audio_id,))
         # result = cursor.fetchone()
         # cursor.close()
@@ -748,13 +870,52 @@ def delete_user():
     if not username:
         return jsonify({'message': 'Username is required'}), 400
 
-    # Assume we have a function that deletes the user from the database
-    # Example: delete_user_from_db(username)
     user_deleted = UserService.delete_user_from_db(username)
+    print("user_deleted:", user_deleted)
     if user_deleted:
+
+        # 删除static/audio/test_api文件夹
+        folder_path = './static/audio/test_api'
+        if os.path.exists(folder_path):
+            shutil.rmtree(folder_path)
+
         return jsonify({'message': 'User deleted successfully'}), 200
     else:
         return jsonify({'message': 'User not found'}), 404
+    
+# 删除用户数据
+@app.route('/api/user/delete-data', methods=['POST'])
+def delete_user_data():
+    username = request.json.get('username')
+    if not username:
+        return jsonify({'message': 'Username is required'}), 400
+
+    user_data_deleted = UserService.delete_user_data(username)
+    if user_data_deleted:
+        return jsonify({'message': 'User data deleted successfully'}), 200
+    else:
+        return jsonify({'message': 'User not found'}), 404
+    
+"""获取音频文件ID"""
+@app.route('/api/audio/id', methods=['GET'])
+def get_audio_id():
+    result = get_audio_music_url()
+    if not result:
+        return jsonify({'error': 'Audio ID not found'}), 404
+    return jsonify({'message': 'Audio ID fetched successfully'}), 200
+
+"""查询用户名是否存在"""
+@app.route('/api/user/exist', methods=['POST'])
+def check_username_exist():
+    username = request.json.get('username')
+    if not username:
+        return jsonify({'error': 'Username is required'}), 400
+
+    user_exist = UserService.get_user_by_username(username)
+    if user_exist:
+        return jsonify({'message': 'Username already exists'}), 400
+    else:
+        return jsonify({'message': 'Username is available'}), 200
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
