@@ -35,8 +35,8 @@ if not os.path.exists(UPLOAD_AUDIO_FOLDER):
 DB_CONFIG = {
     'host': '127.0.0.1',  # 使用本地数据库
     'user': 'root',
-    # 'password': '123qweQWE!',  # 替换为你的密码
-    'password': 'loveat2024a+.',
+    'password': '123qweQWE!',  # 替换为你的密码
+    # 'password': 'loveat2024a+.',
     # 'password': '',
     'database': 'user_auth',
     'port': 3306
@@ -916,6 +916,44 @@ def check_username_exist():
         return jsonify({'message': 'Username already exists'}), 400
     else:
         return jsonify({'message': 'Username is available'}), 200
+
+"""删除用户歌曲"""
+@app.route('/api/user/songs/delete', methods=['POST'])
+def delete_user_songs():
+    data = request.get_json()
+    username = data.get('username')
+    music_id = data.get('music_id')
+    playlist_type = data.get('playlist_type')
+
+    if not all([username, music_id, playlist_type]):
+        return jsonify({'error': 'Missing required fields'}), 400
+
+    # 获取用户id
+    user_id = UserService.get_user_by_username(username)['id']
+    if not user_id:
+        return jsonify({'error': 'User not found'}), 404
+
+    # 删除歌曲
+    query = "DELETE FROM audio_files WHERE user_id = %s AND music_id = %s AND playlist_type = %s"
+    params = (user_id, music_id, playlist_type)
+    DatabaseManager.execute_query(query, params)
+
+    return jsonify({'message': 'Song deleted successfully'}), 200
+
+"""获取test_api第一首歌的music_id"""
+@app.route('/api/audio/search', methods=['GET'])
+def get_music_id():
+    query = """
+    SELECT af.music_id
+    FROM users u
+    JOIN audio_files af ON u.id = af.user_id
+    WHERE u.username = 'test_api' AND af.playlist_type = 1
+    LIMIT 1
+    """
+    result = DatabaseManager.execute_query(query, fetch=True)
+    if not result:
+        return jsonify({'error': 'Audio ID not found','data': []}), 404
+    return jsonify({'message': 'Audio ID fetched successfully', 'data': result}), 200
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)

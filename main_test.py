@@ -203,6 +203,24 @@ def test_add_to_playlist():
     print("Add to api Playlist response:", response.json())
     print("----------------------------------------------------------------------------------------------------------------------------------------")
 
+def test_delete_user_songs(music_id):
+    url = 'http://localhost:5001/api/user/songs/delete'
+    data = {
+        'username': 'test_api',
+        'playlist_type': 2,
+        'music_id': music_id
+    }
+
+    response = requests.post(url, json=data)
+    print("Delete User Songs response:", response.json())
+    print("----------------------------------------------------------------------------------------------------------------------------------------")
+
+def util_get_music_id():
+    url = 'http://localhost:5001/api/audio/search'
+    response = requests.get(url)
+    print("Get Music ID response:", response.json())
+    return response.json()['data'][0]['music_id']
+
 def test():
     username = 'test_api'
     
@@ -221,6 +239,8 @@ def test():
     test_upload_audio()
     test_get_audio()
     test_add_to_playlist()
+    music_id = util_get_music_id()
+    test_delete_user_songs(music_id)
     test_logout()
     test_delete_user_data()
     delete_user('test_api')
