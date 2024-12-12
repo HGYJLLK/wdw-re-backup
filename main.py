@@ -24,7 +24,7 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 UPLOAD_AUDIO_FOLDER = 'static/audio'
 ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'flac'}
 
-# 确保上传文件夹存在
+# 检查上传文件夹是否存在
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
@@ -66,7 +66,7 @@ def save_file(file, folder, filename):
             filename = f"{timestamp}_{filename}"
             file_path = os.path.join(folder, filename)
 
-            # 确保目录存在
+            # 检查目录是否存在
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
             # 保存文件
@@ -82,14 +82,13 @@ def save_file(file, folder, filename):
 def save_audio_file(file, username):
     """保存上传的音频文件"""
     if file and allowed_audio_file(file.filename):
-        print("保存音频文件：", file, file.filename, username)
         try:
             # 如果文件名有'/'，则以'/'为分隔符，取后面的部分作为文件名
             original_filename = file.filename.split('/')[-1]
             user_folder = os.path.join(UPLOAD_AUDIO_FOLDER, username)
             file_path = os.path.join(user_folder, original_filename)
 
-            # 确保用户目录存在
+            # 检查目录是否存在
             os.makedirs(user_folder, exist_ok=True)
 
             # 如果文件已存在，则跳过保存
@@ -124,7 +123,6 @@ def get_audio_music_url():
         """
         params = ()
         result = DatabaseManager.execute_query(query, params, fetch=True)
-        print("查询结果：", result)
         if result:
             file_path = result[0]['file_path']
             # 构建完整的 HTTP URL
@@ -189,7 +187,7 @@ class UserService:
     def create_user(username, password, security_question, security_answer):
         """创建新用户"""
         try:
-            # 先检查用户是否已存在
+            # 检查用户是否已存在
             existing_user = UserService.get_user_by_username(username)
             if existing_user:
                 logger.error(f"Username {username} already exists")
@@ -246,7 +244,7 @@ class UserService:
     @staticmethod
     def update_password(username, new_password, old_password=None):
         """
-        更新密码，兼容直接重置密码和验证旧密码的更新操作。
+        更新密码，重置密码和验证旧密码。
         :param username: 用户名
         :param new_password: 新密码
         :param old_password: 旧密码（可选）
@@ -282,9 +280,9 @@ class UserService:
     
     @staticmethod
     def delete_user_from_db(username):
-        """从数据库中删除用户"""
+        """删除用户"""
         try:
-            # 确保用户存在
+            # 检查用户是否存在
             user = UserService.get_user_by_username(username)
             if not user:
                 logger.error(f"User {username} not found")
@@ -294,7 +292,6 @@ class UserService:
             query = "DELETE FROM users WHERE username = %s"
             params = (username,)
             result = DatabaseManager.execute_query(query, params)
-            print("删除用户：", result)
             if result:
                 logger.info(f"User {username} deleted successfully")
                 return True
@@ -309,7 +306,7 @@ class UserService:
     def delete_user_data(username):
         """删除用户数据"""
         try:
-            # 确保用户存在
+            # 检查用户是否存在
             user = UserService.get_user_by_username(username)
             if not user:
                 return False
@@ -393,8 +390,8 @@ def login():
         if user['password'] != password:
             return jsonify({'error': 'Invalid password'}), 401
 
-        # 生成简单的 token
-        token = f"Bearer_{username}"  # 简化 token 格式
+        # 生成token
+        token = f"Bearer_{username}"
 
          # 构建头像 HTTP 链接
         avatar_url = user.get('avatar_url', '')
@@ -427,7 +424,7 @@ def login():
 def update_user():
     """更新用户信息和密码接口"""
     try:
-        data = request.form.to_dict()  # 支持表单数据（包括文件）
+        data = request.form.to_dict()
         username = data.get('username')
 
         if not username:
@@ -461,19 +458,14 @@ def update_user():
             if not allowed_file(file.filename):
                 return jsonify({'error': 'Invalid file type'}), 400
 
-            # 头像文件名与用户名关联（用用户名作为文件名的一部分）
             file_extension = file.filename.rsplit('.', 1)[1].lower()
             avatar_filename = f"{username}_avatar.{file_extension}"
-
-            # 保存文件（文件路径与用户名相关联，存储到用户文件夹下）
             file_url = save_file(file, folder=f"user_avatars/{username}", filename=avatar_filename)
             if not file_url:
                 return jsonify({'error': 'Failed to save avatar'}), 500
 
             # 将头像的 URL 转换为完整的 HTTP 链接
             full_avatar_url = f"http://localhost:5001{file_url}"
-
-            # # 将头像的 URL 更新到用户信息中
             avatar_result = UserService.update_avatar(username, full_avatar_url)
             if avatar_result is None:
                 return jsonify({'error': 'Failed to update avatar'}), 500
@@ -544,7 +536,7 @@ def verify_security():
 @app.route('/upload/audio', methods=['POST'])
 def upload_audio():
     '''
-    1、检索文件夹音频：上传多个音频 / 没有音频（可前端处理）
+    1、检索文件夹音频：上传多个音频 / 没有音频
     2、上传音频：上传单个音频
     '''
     try:
@@ -557,7 +549,6 @@ def upload_audio():
         # song_name = request.form.get('song_name') or ''
         # 歌单，云歌单：1，本地歌单：2，喜欢的歌单：3
         playlist_type = request.form.get('playlist_type')
-        # pic_url = request.form.get('pic_url') or 'burger.jpg'
         pic_url = 'burger.jpg'
 
         if not username:
@@ -594,12 +585,10 @@ def upload_audio():
                 continue
 
             # 处理filename,test.mp3 -> test
-            print("filename:",filename)
             filename = os.path.splitext(filename)[0]
 
             # 获取音频时长
             duration = get_audio_duration(file_path)
-            print("音频时长：",duration)
 
             # 生成唯一音频id，当前时间戳 + 随机数
             musics_id = int(time.time()) + random.randint(1000, 9999)
@@ -638,8 +627,6 @@ def add_to_playlist():
         pic_url = data.get('pic_url')
         is_self = data.get('is_self')
 
-        print(data,"data")
-
         if not all([username, playlist_type]):
             return jsonify({'error': 'Missing required fields'}), 400
         
@@ -669,8 +656,7 @@ def add_to_playlist():
             existing_files = DatabaseManager.execute_query(query, params, fetch=True)
 
             if existing_files:
-                # 歌名存在，复制一份该数据，并且更改playlist_type
-                # music_id = existing_files[0]['music_id']
+                # 歌名存在
                 query = """
                     INSERT INTO audio_files (user_id, filename, duration, file_path,artist, playlist_type,pic_url,is_self,music_id)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -689,14 +675,7 @@ def get_audio():
     """根据音频ID生成音频链接"""
     try:
         audio_id = request.args.get('id')
-        # conn = DatabaseManager.get_connection()
-        # cursor = conn.cursor(dictionary=True)
         query = "SELECT file_path FROM audio_files WHERE music_id = %s"
-        # cursor.execute(query, (audio_id,))
-        # result = cursor.fetchone()
-        # cursor.close()
-        # conn.close()
-
         result = DatabaseManager.execute_query(query, (audio_id,), fetch=True)
 
         if not result:
@@ -741,11 +720,6 @@ def get_user_songs():
         if not username or not playlist_type:
             return jsonify({'error': 'Missing username or playlist_type'}), 400
 
-        # 获取用户id
-        # user_id = UserService.get_user_by_username(username)['id']
-        # if not user_id:
-        #     return jsonify({'error': 'User not found'}), 404
-
         # 获取用户 id
         with DatabaseManager.get_connection() as conn:
             with conn.cursor() as cursor:
@@ -783,20 +757,11 @@ def get_user_songs():
             }
         }
         '''
-
-        # conn = DatabaseManager.get_connection()
-        # cursor = conn.cursor()
         query = """
             SELECT music_id, filename, duration, artist, playlist_type,pic_url,is_self,file_size
             FROM audio_files
             WHERE user_id = %s AND playlist_type = %s
         """
-        # cursor.execute(query, (user_id, playlist_type))
-        # conn.commit()
-        # result = cursor.fetchall()
-        # cursor.close()
-        # conn.close()
-
         result = DatabaseManager.execute_query(query, (user_id, playlist_type), fetch=True)
 
         # 构建完整的 HTTP 链接
@@ -807,7 +772,7 @@ def get_user_songs():
 
             # 如果 pic_url 存在，构建 HTTP 链接
             if row['pic_url'] and row['is_self']:
-                row['pic_url'] = f"{host}/static/images/{row['pic_url']}"  # 假设图片存储在 /static/images 目录下
+                row['pic_url'] = f"{host}/static/images/{row['pic_url']}"
 
         songs = []
         for row in result:
@@ -851,16 +816,13 @@ def reset_password():
         username = data.get('username')
         new_password = data.get('new_password')
 
-        # Validate input
         if not all([username, new_password]):
             return jsonify({'error': 'Missing required fields'}), 400
 
-        # Get user
         user = UserService.get_user_by_username(username)
         if not user:
             return jsonify({'error': 'User not found'}), 404
 
-        # Update password
         result = UserService.update_password(username, new_password)
         if result is not None:
             return jsonify({'message': 'Password reset successful'}), 200
@@ -878,10 +840,8 @@ def delete_user():
         return jsonify({'message': 'Username is required'}), 400
 
     user_deleted = UserService.delete_user_from_db(username)
-    print("user_deleted:", user_deleted)
     if user_deleted:
 
-        # 删除static/audio/test_api文件夹
         folder_path = './static/audio/test_api'
         if os.path.exists(folder_path):
             shutil.rmtree(folder_path)

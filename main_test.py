@@ -46,8 +46,6 @@ def test_user_avatars():
     avatar_url = updated_fields['avatar']
     avatar_path = avatar_url.replace("http://localhost:5001", "").lstrip('/')  # 移除前导斜杠
     parts = avatar_path.split('/')
-
-    # 确保路径格式正确
     assert len(parts) >= 3, f"Unexpected avatar path format: {avatar_path}"
     username = parts[1]
     filename = parts[2]
@@ -65,8 +63,6 @@ def delete_user(username):
     response = requests.post(url, json=data)
     print(f"Delete user response for {username}:", response.json())
     print("----------------------------------------------------------------------------------------------------------------------------------------")
-    # assert response.status_code == 200, f"Expected 200 OK, but got {response.status_code}"
-    # assert response.json()['message'] == 'User deleted successfully', f"Failed to delete {username}"
 
 def test_verify_security():
     url = 'http://localhost:5001/verify-security'
@@ -101,20 +97,19 @@ def test_upload_audio():
     is_self = True
     playlist_type = 1
 
-    # 准备文件数据，确保 files 中的每个元素是一个文件对象
+    # 文件数据，files 中的每个元素是一个文件对象
     files_data = []
     for file in files:
          # 构建完整的文件路径
         file_path = os.path.join('./static/music', file)
         
         try:
-            # 使用打开文件的路径
             files_data.append(('audio_files', (file, open(file_path, 'rb'))))
         except FileNotFoundError:
             print(f"File not found: {file_path}")
             continue
 
-    # 准备其他数据
+    # 其他数据
     data = {
         'username': username,
         'is_self': is_self,
@@ -236,7 +231,7 @@ def test():
 
     register_user()
     test_user_avatars()
-    # test_verify_security()
+    test_verify_security()
     test_upload_audio()
     test_get_audio()
     test_add_to_playlist()
