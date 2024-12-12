@@ -35,8 +35,8 @@ if not os.path.exists(UPLOAD_AUDIO_FOLDER):
 DB_CONFIG = {
     'host': '127.0.0.1',  # 使用本地数据库
     'user': 'root',
-    'password': '123qweQWE!',  # 替换为你的密码
-    # 'password': 'loveat2024a+.',
+    # 'password': '123qweQWE!',  # 替换为你的密码
+    'password': 'loveat2024a+.',
     # 'password': '',
     'database': 'user_auth',
     'port': 3306
@@ -582,6 +582,11 @@ def upload_audio():
                 logger.info(f"User {username} already has a file named {file.filename}. Skipping save.")
                 continue
 
+            # 获取音频大小
+            file.stream.seek(0, os.SEEK_END)
+            file_size = file.stream.tell()
+            file.stream.seek(0)
+
             # 保存音频文件
             file_path, filename = save_audio_file(file, username)
 
@@ -600,27 +605,12 @@ def upload_audio():
             musics_id = int(time.time()) + random.randint(1000, 9999)
             # 保存到数据库
             query = """
-                INSERT INTO audio_files (user_id, filename, duration, file_path,artist, playlist_type,pic_url,is_self,music_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s,%s)
+                INSERT INTO audio_files (user_id, filename, duration, file_path,artist, playlist_type,pic_url,is_self,music_id,file_size)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s,%s,%s)
             """
-            params = (user_id, filename, duration, file_path, artist, playlist_type,pic_url,is_self,musics_id)
+            params = (user_id, filename, duration, file_path, artist, playlist_type,pic_url,is_self,musics_id,file_size)
             DatabaseManager.execute_query(query, params)
-
-        # # 如果files数组为空和存在歌名和is_self为true，在云歌单查找这首歌的music_id，复制一份数据，并且更改playlist_type为playlist_type
-        # if not files and song_name and is_self == 'true':
-        #     query = "SELECT * FROM audio_files WHERE song_name = %s AND playlist_type = 1"
-        #     params = (song_name,)
-        #     existing_files = DatabaseManager.execute_query(query, params, fetch=True)
-        #     if existing_files:
-        #         music_id = existing_files[0]['music_id']
-        #         query = """
-        #             INSERT INTO audio_files (user_id, filename, duration, file_path,artist, playlist_type,pic_url,is_self,music_id)
-        #             VALUES (%s, %s, %s,%s)
-        #         """
-        #         params = (user_id, existing_files[0]['filename'], existing_files[0]['duration'], existing_files[0]['file_path'], artist, playlist_type,pic_url,is_self,music_id)
-        #         DatabaseManager.execute_query(query, params)
                 
-
         return jsonify({'message': 'Audio files processed successfully'}), 200
 
     except Exception as e:
@@ -640,7 +630,7 @@ def add_to_playlist():
         '''
         data = request.get_json()
         username = data.get('username')
-        # music_id = data.get('music_id')
+        music_id = data.get('music_id')
         playlist_type = data.get('playlist_type')
         song_name = data.get('song_name')
         artist = data.get('artist')
@@ -668,8 +658,8 @@ def add_to_playlist():
         
         if not is_self:
             # api音频，直接添加到歌单
-            query = "insert into audio_files (user_id, filename, duration,artist, playlist_type,pic_url) values (%s, %s, %s, %s, %s, %s)"
-            params = (user_id, song_name, duration, artist, playlist_type,pic_url)
+            query = "insert into audio_files (user_id, filename, duration,artist, playlist_type,pic_url,music_id) values (%s, %s, %s, %s, %s, %s,%s)"
+            params = (user_id, song_name, duration, artist, playlist_type,pic_url,music_id)
             DatabaseManager.execute_query(query, params)
         else:
             # 自定义音频
@@ -797,7 +787,7 @@ def get_user_songs():
         # conn = DatabaseManager.get_connection()
         # cursor = conn.cursor()
         query = """
-            SELECT music_id, filename, duration, artist, playlist_type,pic_url,is_self
+            SELECT music_id, filename, duration, artist, playlist_type,pic_url,is_self,file_size
             FROM audio_files
             WHERE user_id = %s AND playlist_type = %s
         """
@@ -816,7 +806,7 @@ def get_user_songs():
             row['filename'] = os.path.splitext(row['filename'])[0]
 
             # 如果 pic_url 存在，构建 HTTP 链接
-            if row['pic_url']:
+            if row['pic_url'] and row['is_self']:
                 row['pic_url'] = f"{host}/static/images/{row['pic_url']}"  # 假设图片存储在 /static/images 目录下
 
         songs = []
@@ -831,7 +821,9 @@ def get_user_songs():
                 'alia': [],
                 'self': row['is_self'],
                 'fee': 8,
-                'st': 0
+                'st': 0,
+                # 音频大小
+                'file_size': row['file_size']
             })
 
         if songs.__len__() == 0:

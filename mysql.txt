@@ -40,7 +40,8 @@ CREATE TABLE `audio_files` (
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- 上传时间
   `artist` varchar(255) DEFAULT NULL,
   `playlist_type` int,
-  is_self varchar(255) DEFAULT NULL,
+  `is_self` varchar(255) DEFAULT NULL,
+  `file_size` BIGINT DEFAULT NULL,
   PRIMARY KEY (`id`),
   FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) -- 与 users 表建立关联
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -56,4 +57,5 @@ duration: 音频的时长，单位为毫秒。
 created_at: 记录音频上传的时间。
 artist: 歌手名。
 playlist_type: 歌单类型，1为云歌单，2为本地歌单，3为喜欢歌单
+file_size: 音频文件的大小，单位为字节。
 is_self: 是否为自己上传的音频，true为自己上传的音频，false为非自己上传的音频

@@ -196,6 +196,7 @@ def test_add_to_playlist():
         'song_name' : '極私的極彩色アンサー',
         'artist': 'トゲナシトゲアリ',
         'duration': 155006,
+        'music_id': '1394111226',
         'pic_url':'https://p2.music.126.net/FaNFmGKiQEB5mMmWeDqLhQ==/109951170209243099.jpg'
         }
     
