@@ -35,8 +35,8 @@ if not os.path.exists(UPLOAD_AUDIO_FOLDER):
 DB_CONFIG = {
     'host': '127.0.0.1',  # 使用本地数据库
     'user': 'root',
-    # 'password': '123qweQWE!',  # 替换为你的密码
-    'password': 'loveat2024a+.',
+    'password': '123qweQWE!',  # 替换为你的密码
+    # 'password': 'loveat2024a+.',
     # 'password': '',
     'database': 'user_auth',
     'port': 3306

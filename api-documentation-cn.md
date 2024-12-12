@@ -21,18 +21,12 @@
 ```
 
 **响应:**
-- 成功：
-  ```json
-  {
-    "message": "User registered successfully"
-  }
-  ```
-- 失败：
-  ```json
-  {
-    "error": "string"
-  }
-  ```
+
+```json
+{
+  "message": "User registered successfully"
+}
+```
 
 ---
 
@@ -50,29 +44,23 @@
 ```
 
 **响应:**
-- 成功：
-  ```json
-  {
-    "code": 200,
-    "message": "Login successful",
-    "data": {
-      "token": "string",
-      "userInfo": {
-        "username": "string",
-        "nickname": "string",
-        "avatar": "string",
-        "intro": "string",
-        "security_question": "string"
-      }
+
+```json
+{
+  "code": 200,
+  "message": "Login successful",
+  "data": {
+    "token": "string",
+    "userInfo": {
+      "username": "string",
+      "nickname": "string",
+      "avatar": "string",
+      "intro": "string",
+      "security_question": "string"
     }
   }
-  ```
-- 失败：
-  ```json
-  {
-    "error": "string"
-  }
-  ```
+}
+```
 
 ---
 
@@ -87,20 +75,15 @@
   - `is_self` (boolean): 是否为用户自定义音频
   - `playlist_type` (int): 歌单类型
   - `audio_files` (file): 音频文件
+  - `artist`(string)：歌手名
 
 **响应:**
-- 成功：
-  ```json
-  {
-    "message": "Audio files processed successfully"
-  }
-  ```
-- 失败：
-  ```json
-  {
-    "error": "string"
-  }
-  ```
+
+```json
+{
+  "message": "Audio files processed successfully"
+}
+```
 
 ---
 
@@ -120,28 +103,22 @@
   - 可选：头像文件 `avatar` (file)
 
 **响应:**
-- 成功：
-  ```json
-  {
-    "code": 200,
-    "message": "Update successful",
-    "data": {
-      "profile_updated": true,
-      "password_updated": true,
-      "updated_fields": {
-        "nickname": "string",
-        "intro": "string",
-        "avatar": "string"
-      }
+
+```json
+{
+  "code": 200,
+  "message": "Update successful",
+  "data": {
+    "profile_updated": true,
+    "password_updated": true,
+    "updated_fields": {
+      "nickname": "string",
+      "intro": "string",
+      "avatar": "string"
     }
   }
-  ```
-- 失败：
-  ```json
-  {
-    "error": "string"
-  }
-  ```
+}
+```
 
 ---
 
@@ -151,6 +128,7 @@
 **请求方法:** POST
 
 **请求体:**
+
 ```json
 {
   "username": "string",  // 用户名
@@ -165,18 +143,12 @@
 ```
 
 **响应:**
-- 成功：
-  ```json
-  {
-    "message": "Audio added to playlist successfully"
-  }
-  ```
-- 失败：
-  ```json
-  {
-    "error": "string"
-  }
-  ```
+
+```json
+{
+  "message": "Audio added to playlist successfully"
+}
+```
 
 ---
 
@@ -190,37 +162,31 @@
 - `playlist_type` (int): 歌单类型
 
 **响应:**
-- 成功：
-  ```json
-  {
-    "songsDetail": {
-      "songs": [
-        {
-          "id": "string",
-          "name": "string",
-          "ar": [{ "name": "string" }],
-          "al": { "picUrl": "string" },
-          "dt": "int",  // 时长 (ms)
-          "mv": 0,
-          "alia": [],
-          "self": true,
-          "fee": 8,
-          "st": 0,
-          "file_size": "int"  // 文件大小
-        }
-      ],
-      "privileges": [
-        { "chargeInfoList": [{ "chargeType": 0 }], "st": 0 }
-      ]
-    }
+
+```json
+{
+  "songsDetail": {
+    "songs": [
+      {
+        "id": "string",
+        "name": "string",
+        "ar": [{ "name": "string" }],
+        "al": { "picUrl": "string" },
+        "dt": "int",  // 时长 (ms)
+        "mv": 0,
+        "alia": [],
+        "self": true,
+        "fee": 8,
+        "st": 0,
+        "file_size": "int"  // 文件大小
+      }
+    ],
+    "privileges": [
+      { "chargeInfoList": [{ "chargeType": 0 }], "st": 0 }
+    ]
   }
-  ```
-- 失败：
-  ```json
-  {
-    "error": "string"
-  }
-  ```
+}
+```
 
 ---
 
@@ -238,18 +204,12 @@
 ```
 
 **响应:**
-- 成功：
-  ```json
-  {
-    "message": "Password reset successful"
-  }
-  ```
-- 失败：
-  ```json
-  {
-    "error": "string"
-  }
-  ```
+
+```json
+{
+  "message": "Password reset successful"
+}
+```
 
 ---
 
@@ -268,18 +228,12 @@
 ```
 
 **响应:**
-- 成功：
-  ```json
-  {
-    "message": "Song deleted successfully"
-  }
-  ```
-- 失败：
-  ```json
-  {
-    "error": "string"
-  }
-  ```
+
+```json
+{
+  "message": "Song deleted successfully"
+}
+```
 
 ---
 
@@ -292,30 +246,17 @@
 ```json
 {
   "username": "string",  // 用户名
-  "security_answer": "string"  // 安全问题答案（可选）
+  "security_answer": "string"  // 安全问题答案
 }
 ```
 
 **响应:**
-- 成功（获取问题）：
-  ```json
-  {
-    "security_question": "string"
-  }
-  ```
-- 成功（验证答案）：
-  ```json
-  {
-    "message": "Security answer verified",
-    "verified": true
-  }
-  ```
-- 失败：
-  ```json
-  {
-    "error": "string"
-  }
-  ```
+
+```json
+{
+  "security_question": "string"
+}
+```
 
 ---
 
@@ -328,18 +269,12 @@
 - `id` (string): 音频ID
 
 **响应:**
-- 成功：
-  ```json
-  {
-    "musicUrl": "string"  // 音频链接
-  }
-  ```
-- 失败：
-  ```json
-  {
-    "error": "string"
-  }
-  ```
+
+```json
+{
+  "musicUrl": "string"  // 音频链接
+}
+```
 
 ---
 
@@ -349,16 +284,10 @@
 **请求方法:** GET
 
 **响应:**
-- 成功：
-  ```json
-  {
-    "code": 200,
-    "message": "Logout successful"
-  }
-  ```
-- 失败：
-  ```json
-  {
-    "error": "Logout failed"
-  }
-  ```
+
+```json
+{
+  "code": 200,
+  "message": "Logout successful"
+}
+```
