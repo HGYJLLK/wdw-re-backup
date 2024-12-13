@@ -715,8 +715,6 @@ def get_user_songs():
         username = request.args.get('username')
         # 云歌单：1 本地歌单：2 我的最爱歌单：3
         playlist_type = request.args.get('playlist_type')
-        print("/api/user/songs：",username, playlist_type)
-
         if not username or not playlist_type:
             return jsonify({'error': 'Missing username or playlist_type'}), 400
 
@@ -730,8 +728,6 @@ def get_user_songs():
                 if not user:
                     return jsonify({'error': 'User not found'}), 404
                 user_id = user[0]
-        
-        print("user_id:", user_id)
 
         # 获取歌单信息
         '''
