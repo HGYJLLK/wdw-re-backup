@@ -35,8 +35,8 @@ if not os.path.exists(UPLOAD_AUDIO_FOLDER):
 DB_CONFIG = {
     'host': '127.0.0.1',  # 使用本地数据库
     'user': 'root',
-    'password': '123qweQWE!',  # 替换为你的密码
-    # 'password': 'loveat2024a+.',
+    # 'password': '123qweQWE!',  # 替换为你的密码
+    'password': 'loveat2024a+.',
     # 'password': '',
     'database': 'user_auth',
     'port': 3306
@@ -358,10 +358,22 @@ def register():
         if not all([username, password, security_question, security_answer]):
             logger.error("Missing required registration fields")
             return jsonify({'error': 'Missing required fields'}), 400
+        
+        
 
         # 创建新用户
         result = UserService.create_user(username, password, security_question, security_answer)
         if result is not None:
+            # 检查static/audio/<username>是否存在，如果存在，则删除
+            user_folder = os.path.join(UPLOAD_AUDIO_FOLDER, username)
+            if os.path.exists(user_folder):
+                shutil.rmtree(user_folder)
+
+            # 检查user_avatars/<username>是否存在，如果存在，则删除
+            user_avatar_folder = os.path.join(UPLOAD_FOLDER, username)
+            if os.path.exists(user_avatar_folder):
+                shutil.rmtree(user_avatar_folder)
+
             logger.info(f"Successfully registered user: {username}")
             return jsonify({'message': 'User registered successfully'}), 201
         else:
@@ -549,7 +561,7 @@ def upload_audio():
         # song_name = request.form.get('song_name') or ''
         # 歌单，云歌单：1，本地歌单：2，喜欢的歌单：3
         playlist_type = request.form.get('playlist_type')
-        pic_url = 'burger.jpg'
+        pic_url = 'burger.png'
 
         if not username:
             return jsonify({'error': 'Missing username'}), 400

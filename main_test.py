@@ -34,8 +34,8 @@ def test_user_avatars():
         'confirmPassword': 'newpassword456',
         'nickname': 'UpdatedNickname'
     }
-    with open('burger.jpg', 'rb') as avatar_file:
-        files = {'avatar': ('burger.jpg', avatar_file, 'image/jpeg')}
+    with open('burger.png', 'rb') as avatar_file:
+        files = {'avatar': ('burger.png', avatar_file, 'image/png')}
         response = requests.post(url_update, data=data, files=files, cookies=cookies)
 
     assert response.status_code == 200, f"Expected 200 OK, but got {response.status_code}"
