@@ -104,6 +104,26 @@ def save_audio_file(file, username):
             return None, None
     return None, None
 
+def delete_audio_file(file_path,username):
+    """删除音频文件"""
+    try:
+        # 文件夹路径
+        user_folder = os.path.join(UPLOAD_AUDIO_FOLDER, username)
+        print(user_folder,"delete_audio_file")
+        # 查找文件夹下所有文件
+        files = os.listdir(user_folder)
+        print(os.path.basename(file_path),"delete_audio_file+++")
+        for file in files:
+            # 去除file的后缀名
+            filename = os.path.splitext(file)[0]
+            print(filename,"delete_audio_file")
+            if filename == os.path.basename(file_path):
+                os.remove(os.path.join(user_folder, file))
+        
+        return True
+    except Exception as e:
+        logger.error(f"Error deleting audio file: {e}")
+        return False
 
 def get_audio_duration(file_path):
     """获取音频时长（毫秒）"""
@@ -907,6 +927,19 @@ def delete_user_songs():
     user_id = UserService.get_user_by_username(username)['id']
     if not user_id:
         return jsonify({'error': 'User not found'}), 404
+    
+    # 查询歌曲名
+    query = "SELECT filename FROM audio_files WHERE user_id = %s AND music_id = %s AND playlist_type = %s"
+    params = (user_id, music_id, playlist_type)
+    existing_files = DatabaseManager.execute_query(query, params, fetch=True)
+
+    if not existing_files:
+        return jsonify({'error': 'Song not found'}), 404
+
+    # 删除歌曲文件
+    file_path = existing_files[0]['filename']
+    
+    delete_audio_file(file_path,username)
 
     # 删除歌曲
     query = "DELETE FROM audio_files WHERE user_id = %s AND music_id = %s AND playlist_type = %s"
