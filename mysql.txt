@@ -92,7 +92,6 @@ CREATE TABLE `albums` (
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`albums_id`),
   FULLTEXT KEY `ft_title` (`albums_title`)
-  CONSTRAINT `fk_albums_artist` FOREIGN KEY (`artist_id`) REFERENCES `artist` (`artist_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 表字段说明：
@@ -122,8 +121,6 @@ CREATE TABLE `songs_messages` (
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`songs_id`),
   FULLTEXT KEY `ft_title` (`title`)
-  CONSTRAINT `fk_songs_album` FOREIGN KEY (`album_id`) REFERENCES `albums` (`albums_id`) ON DELETE SET NULL,
-  CONSTRAINT `fk_songs_artist` FOREIGN KEY (`artist_id`) REFERENCES `artist` (`artist_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 表字段说明：
@@ -142,5 +139,4 @@ file_format: 文件格式。
 created_at: 记录歌曲上传的时间。
 updated_at: 记录歌曲更新的时间。
 
-ALTER TABLE `audio_files` 
-ADD CONSTRAINT `fk_audio_files_music` FOREIGN KEY (`music_id`) REFERENCES `songs_messages` (`songs_id`) ON DELETE SET NULL;
+ALTER TABLE audio_files ADD COLUMN is_disabled BOOLEAN DEFAULT FALSE;
