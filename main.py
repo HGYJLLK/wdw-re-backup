@@ -532,6 +532,149 @@ def admin_stats():
         logger.error(f"Admin stats error: {e}")
         return jsonify({"error": "获取统计数据失败"}), 500
 
+# 获取用户列表
+@app.route('/admin/users', methods=['GET'])
+def admin_get_users():
+    # 验证管理员身份
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Admin_'):
+        return jsonify({'error': '未授权访问'}), 401
+    
+    try:
+        # 获取分页参数
+        page = int(request.args.get('page', 1))
+        search = request.args.get('search', '')
+        
+        # 每页显示数量
+        per_page = 10
+        offset = (page - 1) * per_page
+        
+        if search:
+            query = "SELECT * FROM users WHERE username LIKE %s ORDER BY id DESC LIMIT %s OFFSET %s"
+            params = (f'%{search}%', per_page, offset)
+        else:
+            query = "SELECT * FROM users ORDER BY id DESC LIMIT %s OFFSET %s"
+            params = (per_page, offset)
+        
+        result = DatabaseManager.execute_query(query, params, fetch=True)
+        
+        return jsonify({
+            'users': result
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Admin get users error: {e}")
+        return jsonify({'error': '获取用户列表失败'}), 500
+
+# 获取单个用户详情
+@app.route('/admin/users/<int:user_id>', methods=['GET'])
+def admin_get_user(user_id):
+    # 验证管理员身份
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Admin_'):
+        return jsonify({'error': '未授权访问'}), 401
+    
+    try:
+        # 获取用户信息
+        query = "SELECT * FROM users WHERE id = %s"
+        params = (user_id,)
+        user_result = DatabaseManager.execute_query(query, params, fetch=True)
+        
+        if not user_result:
+            return jsonify({'error': '用户不存在'}), 404
+        
+        user = user_result[0]
+        
+        # 获取用户统计信息
+        stats_query = """
+            SELECT 
+                COUNT(*) as song_count,
+                COALESCE(SUM(file_size), 0) as storage_used
+            FROM audio_files
+            WHERE user_id = %s
+        """
+        stats_result = DatabaseManager.execute_query(stats_query, (user_id,), fetch=True)
+        
+        # 头像处理
+        if user.get('avatar_url'):
+            host = request.host_url.rstrip('/')
+            user['avatar_url'] = f"{host}{user['avatar_url']}"
+        
+        return jsonify({
+            'user': user,
+            'statistics': stats_result[0] if stats_result else None
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Admin get user error: {e}")
+        return jsonify({'error': '获取用户信息失败'}), 500
+
+# 删除用户
+@app.route('/admin/users/<int:user_id>', methods=['DELETE'])
+def admin_delete_user(user_id):
+    # 验证管理员身份
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Admin_'):
+        return jsonify({'error': '未授权访问'}), 401
+    
+    try:
+        # 检查用户是否存在
+        query = "SELECT username FROM users WHERE id = %s"
+        params = (user_id,)
+        user_result = DatabaseManager.execute_query(query, params, fetch=True)
+        
+        if not user_result:
+            return jsonify({'error': '用户不存在'}), 404
+        
+        username = user_result[0]['username']
+        
+        # 删除用户的音频文件
+        query = "SELECT file_path FROM audio_files WHERE user_id = %s"
+        params = (user_id,)
+        files_result = DatabaseManager.execute_query(query, params, fetch=True)
+        
+        for file in files_result:
+            file_path = file['file_path']
+            if file_path and os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except:
+                    logger.warning(f"Failed to delete file: {file_path}")
+        
+        # 删除用户的头像目录
+        avatar_dir = os.path.join(UPLOAD_FOLDER, username)
+        if os.path.exists(avatar_dir):
+            try:
+                shutil.rmtree(avatar_dir)
+            except:
+                logger.warning(f"Failed to delete avatar directory: {avatar_dir}")
+        
+        # 删除用户的音频目录
+        audio_dir = os.path.join(UPLOAD_AUDIO_FOLDER, username)
+        if os.path.exists(audio_dir):
+            try:
+                shutil.rmtree(audio_dir)
+            except:
+                logger.warning(f"Failed to delete audio directory: {audio_dir}")
+        
+        # 删除用户的音频记录
+        query = "DELETE FROM audio_files WHERE user_id = %s"
+        params = (user_id,)
+        DatabaseManager.execute_query(query, params)
+        
+        # 最后删除用户
+        query = "DELETE FROM users WHERE id = %s"
+        params = (user_id,)
+        DatabaseManager.execute_query(query, params)
+        
+        return jsonify({
+            'success': True,
+            'message': '用户删除成功'
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Admin delete user error: {e}")
+        return jsonify({'error': '删除用户失败'}), 500
 
 @app.route("/api/user/update", methods=["POST"])
 def update_user():
