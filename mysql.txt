@@ -140,3 +140,18 @@ created_at: 记录歌曲上传的时间。
 updated_at: 记录歌曲更新的时间。
 
 ALTER TABLE audio_files ADD COLUMN is_disabled BOOLEAN DEFAULT FALSE;
+ALTER TABLE audio_files ADD COLUMN reference_id VARCHAR(50) DEFAULT NULL;
+ALTER TABLE audio_files ADD COLUMN is_api_music BOOLEAN DEFAULT FALSE;
+
+CREATE TABLE `central_music_library` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `music_id` VARCHAR(50) NOT NULL,
+  `name` VARCHAR(255) NOT NULL,
+  `artist` VARCHAR(255),
+  `duration` INT,
+  `pic_url` VARCHAR(255),
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `is_disabled` BOOLEAN DEFAULT FALSE,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `music_id` (`music_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
