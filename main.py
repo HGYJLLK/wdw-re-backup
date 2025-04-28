@@ -6,6 +6,7 @@ from datetime import datetime
 import logging
 import os
 from werkzeug.utils import secure_filename
+
 # 获取音频时长
 from pydub.utils import mediainfo
 import ffmpeg
@@ -15,14 +16,16 @@ import random
 import urllib.parse
 import shutil
 
+import time
+
 app = Flask(__name__)
 CORS(app)
 
 # 配置上传文件夹
-UPLOAD_FOLDER = 'user_avatars'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-UPLOAD_AUDIO_FOLDER = 'static/audio'
-ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'flac'}
+UPLOAD_FOLDER = "user_avatars"
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
+UPLOAD_AUDIO_FOLDER = "static/audio"
+ALLOWED_AUDIO_EXTENSIONS = {"mp3", "wav", "flac"}
 
 # 检查上传文件夹是否存在
 if not os.path.exists(UPLOAD_FOLDER):
@@ -33,13 +36,13 @@ if not os.path.exists(UPLOAD_AUDIO_FOLDER):
 
 # 数据库配置
 DB_CONFIG = {
-    'host': '127.0.0.1',  # 使用本地数据库
-    'user': 'root',
-    'password': '123qweQWE!',  # 替换为你的密码
+    "host": "127.0.0.1",  # 使用本地数据库
+    "user": "root",
+    "password": "123qweQWE!",  # 替换为你的密码
     # 'password': 'loveat2024a+.',
     # 'password': '',
-    'database': 'user_auth',
-    'port': 3306
+    "database": "user_auth",
+    "port": 3306,
 }
 
 # 配置日志
@@ -49,19 +52,20 @@ logger = logging.getLogger(__name__)
 
 def allowed_file(filename):
     """检查文件类型是否允许"""
-    return '.' in filename and \
-        filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 def allowed_audio_file(filename):
     """检查文件是否是允许的音频文件类型"""
-    allowed_extensions = {'mp3', 'wav', 'flac', 'aac'}
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
+    allowed_extensions = {"mp3", "wav", "flac", "aac"}
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in allowed_extensions
+
 
 def save_file(file, folder, filename):
     """保存上传的文件"""
     if file and allowed_file(file.filename):
         try:
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             original_filename = secure_filename(file.filename)
             filename = f"{timestamp}_{filename}"
             file_path = os.path.join(folder, filename)
@@ -79,12 +83,13 @@ def save_file(file, folder, filename):
             return None
     return None
 
+
 def save_audio_file(file, username):
     """保存上传的音频文件"""
     if file and allowed_audio_file(file.filename):
         try:
             # 如果文件名有'/'，则以'/'为分隔符，取后面的部分作为文件名
-            original_filename = file.filename.split('/')[-1]
+            original_filename = file.filename.split("/")[-1]
             user_folder = os.path.join(UPLOAD_AUDIO_FOLDER, username)
             file_path = os.path.join(user_folder, original_filename)
 
@@ -93,7 +98,9 @@ def save_audio_file(file, username):
 
             # 如果文件已存在，则跳过保存
             if os.path.exists(file_path):
-                logger.info(f"File {original_filename} already exists for user {username}. Skipping save.")
+                logger.info(
+                    f"File {original_filename} already exists for user {username}. Skipping save."
+                )
                 return None, None
 
             # 保存文件
@@ -104,32 +111,35 @@ def save_audio_file(file, username):
             return None, None
     return None, None
 
-def delete_audio_file(file_path,username):
+
+def delete_audio_file(file_path, username):
     """删除音频文件"""
     try:
         # 文件夹路径
         user_folder = os.path.join(UPLOAD_AUDIO_FOLDER, username)
-        print(user_folder,"delete_audio_file")
+        print(user_folder, "delete_audio_file")
         # 查找文件夹下所有文件
         files = os.listdir(user_folder)
-        print(os.path.basename(file_path),"delete_audio_file+++")
+        print(os.path.basename(file_path), "delete_audio_file+++")
         for file in files:
             # 去除file的后缀名
             filename = os.path.splitext(file)[0]
-            print(filename,"delete_audio_file")
+            print(filename, "delete_audio_file")
             if filename == os.path.basename(file_path):
                 os.remove(os.path.join(user_folder, file))
-        
+
         return True
     except Exception as e:
         logger.error(f"Error deleting audio file: {e}")
         return False
+
 
 def get_audio_duration(file_path):
     """获取音频时长（毫秒）"""
     duration = librosa.get_duration(filename=file_path)
     duration_ms = duration * 1000  # 转换为毫秒
     return int(duration_ms)
+
 
 def get_audio_music_url():
     """获取音频文件url"""
@@ -144,9 +154,9 @@ def get_audio_music_url():
         params = ()
         result = DatabaseManager.execute_query(query, params, fetch=True)
         if result:
-            file_path = result[0]['file_path']
+            file_path = result[0]["file_path"]
             # 构建完整的 HTTP URL
-            host = request.host_url.rstrip('/')  # 获取主机地址
+            host = request.host_url.rstrip("/")  # 获取主机地址
             file_url = f"{host}/static/{os.path.relpath(file_path, start='static')}"
             return file_url
         else:
@@ -276,7 +286,7 @@ class UserService:
                 return None
 
             # 如果提供了旧密码，则验证旧密码
-            if old_password and user['password'] != old_password:
+            if old_password and user["password"] != old_password:
                 return None
 
             # 更新密码
@@ -297,7 +307,7 @@ class UserService:
         except Exception as e:
             logger.error(f"Error updating avatar: {e}")
             return None
-    
+
     @staticmethod
     def delete_user_from_db(username):
         """删除用户"""
@@ -331,10 +341,10 @@ class UserService:
             if not user:
                 return False
 
-            user_id = user['id']
+            user_id = user["id"]
 
             # 删除用户头像
-            folder_path = './user_avatars/test_api'
+            folder_path = "./user_avatars/test_api"
             if os.path.exists(folder_path):
                 shutil.rmtree(folder_path)
 
@@ -352,37 +362,38 @@ class UserService:
             logger.error(f"Error deleting user data for {user_id}: {e}")
             return False
 
-@app.route('/user_avatars/<username>/<filename>')
+
+@app.route("/user_avatars/<username>/<filename>")
 def uploaded_file(username, filename):
     """根据用户名获取头像"""
     user_folder = os.path.join(UPLOAD_FOLDER, username)
     try:
         return send_from_directory(user_folder, filename)
     except FileNotFoundError:
-        return jsonify({'error': 'File not found'}), 404
+        return jsonify({"error": "File not found"}), 404
 
 
-@app.route('/register', methods=['POST'])
+@app.route("/register", methods=["POST"])
 def register():
     """用户注册接口"""
     try:
         data = request.get_json()
-        username = data.get('username')
-        password = data.get('password')
-        security_question = data.get('security_question')
-        security_answer = data.get('security_answer')
+        username = data.get("username")
+        password = data.get("password")
+        security_question = data.get("security_question")
+        security_answer = data.get("security_answer")
 
         logger.info(f"Attempting to register user: {username}")
 
         # 校验输入
         if not all([username, password, security_question, security_answer]):
             logger.error("Missing required registration fields")
-            return jsonify({'error': 'Missing required fields'}), 400
-        
-        
+            return jsonify({"error": "Missing required fields"}), 400
 
         # 创建新用户
-        result = UserService.create_user(username, password, security_question, security_answer)
+        result = UserService.create_user(
+            username, password, security_question, security_answer
+        )
         if result is not None:
             # 检查static/audio/<username>是否存在，如果存在，则删除
             user_folder = os.path.join(UPLOAD_AUDIO_FOLDER, username)
@@ -395,102 +406,147 @@ def register():
                 shutil.rmtree(user_avatar_folder)
 
             logger.info(f"Successfully registered user: {username}")
-            return jsonify({'message': 'User registered successfully'}), 201
+            return jsonify({"message": "User registered successfully"}), 201
         else:
             logger.error("Failed to create user")
-            return jsonify({'error': 'Registration failed'}), 500
+            return jsonify({"error": "Registration failed"}), 500
 
     except Exception as e:
         logger.error(f"Registration error: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/login', methods=['POST'])
+@app.route("/login", methods=["POST"])
 def login():
     try:
         data = request.get_json()
-        username = data.get('username')
-        password = data.get('password')
+        username = data.get("username")
+        password = data.get("password")
 
         if not all([username, password]):
-            return jsonify({'error': 'Missing credentials'}), 400
+            return jsonify({"error": "Missing credentials"}), 400
 
         user = UserService.get_user_by_username(username)
         if not user:
-            return jsonify({'error': 'User not found'}), 404
+            return jsonify({"error": "User not found"}), 404
 
-        if user['password'] != password:
-            return jsonify({'error': 'Invalid password'}), 401
+        if user["password"] != password:
+            return jsonify({"error": "Invalid password"}), 401
 
         # 生成token
         token = f"Bearer_{username}"
 
-         # 构建头像 HTTP 链接
-        avatar_url = user.get('avatar_url', '')
+        # 构建头像 HTTP 链接
+        avatar_url = user.get("avatar_url", "")
         if avatar_url:
             avatar_url = f"http://localhost:5001/user_avatars/{username}/{os.path.basename(avatar_url)}"
 
         user_info = {
-            'username': user['username'],
-            'nickname': user.get('nickname', user['username']),
-            'avatar': avatar_url,  # 返回完整的头像 HTTP 链接
-            'intro': user.get('intro', ''),
-            'security_question': user.get('security_question', '')
+            "username": user["username"],
+            "nickname": user.get("nickname", user["username"]),
+            "avatar": avatar_url,  # 返回完整的头像 HTTP 链接
+            "intro": user.get("intro", ""),
+            "security_question": user.get("security_question", ""),
         }
 
-        return jsonify({
-            'code': 200,
-            'message': 'Login successful',
-            'data': {
-                'token': token,
-                'userInfo': user_info
-            }
-        }), 200
+        return (
+            jsonify(
+                {
+                    "code": 200,
+                    "message": "Login successful",
+                    "data": {"token": token, "userInfo": user_info},
+                }
+            ),
+            200,
+        )
 
     except Exception as e:
         logger.error(f"Login error: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
+
 
 # 管理员登录接口
-@app.route('/admin/login', methods=['POST'])
+@app.route("/admin/login", methods=["POST"])
 def admin_login():
     try:
         data = request.get_json()
-        username = data.get('username')
-        password = data.get('password')
+        username = data.get("username")
+        password = data.get("password")
 
-        admin_username = "admin"  
-        admin_password = "admin" 
+        admin_username = "admin"
+        admin_password = "admin"
 
         if username != admin_username or password != admin_password:
-            return jsonify({'error': '用户名或密码错误'}), 401
+            return jsonify({"error": "用户名或密码错误"}), 401
 
         # 生成管理员token
         admin_token = f"Admin_{username}_{int(time.time())}"
-        
-        return jsonify({
-            'message': '登录成功',
-            'token': admin_token
-        }), 200
+
+        return jsonify({"message": "登录成功", "token": admin_token}), 200
 
     except Exception as e:
         logger.error(f"Admin login error: {e}")
-        return jsonify({'error': '服务器内部错误'}), 500
+        return jsonify({"error": "服务器内部错误"}), 500
 
-@app.route('/api/user/update', methods=['POST'])
+
+# 管理员获取统计数据接口
+@app.route("/admin/stats", methods=["GET"])
+def admin_stats():
+    # 验证管理员身份
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Admin_"):
+        return jsonify({"error": "未授权访问"}), 401
+
+    try:
+        # 获取用户总数
+        users_query = "SELECT COUNT(*) as total FROM users"
+        users_result = DatabaseManager.execute_query(users_query, fetch=True)
+        total_users = users_result[0]["total"] if users_result else 0
+
+        # 获取音乐总数
+        songs_query = "SELECT COUNT(*) as total FROM audio_files"
+        songs_result = DatabaseManager.execute_query(songs_query, fetch=True)
+        total_songs = songs_result[0]["total"] if songs_result else 0
+
+        # 获取存储空间使用情况
+        storage_query = "SELECT SUM(file_size) as total FROM audio_files"
+        storage_result = DatabaseManager.execute_query(storage_query, fetch=True)
+        storage_used = (
+            storage_result[0]["total"]
+            if storage_result and storage_result[0]["total"]
+            else 0
+        )
+
+        return (
+            jsonify(
+                {
+                    "totalUsers": total_users,
+                    "totalSongs": total_songs,
+                    "storageUsed": storage_used,
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        logger.error(f"Admin stats error: {e}")
+        return jsonify({"error": "获取统计数据失败"}), 500
+
+
+@app.route("/api/user/update", methods=["POST"])
 def update_user():
     """更新用户信息和密码接口"""
     try:
         data = request.form.to_dict()
-        username = data.get('username')
+        username = data.get("username")
 
         if not username:
-            return jsonify({'error': 'Username is required'}), 400
+            return jsonify({"error": "Username is required"}), 400
 
         # 获取当前用户信息
         user = UserService.get_user_by_username(username)
         if not user:
-            return jsonify({'error': 'User not found'}), 404
+            return jsonify({"error": "User not found"}), 404
 
         # 初始化更新状态
         profile_updated = False
@@ -498,124 +554,130 @@ def update_user():
         updates = {}
 
         # 更新基本信息
-        if 'nickname' in data:
-            updates['nickname'] = data['nickname']
-        if 'intro' in data:
-            updates['intro'] = data['intro']
+        if "nickname" in data:
+            updates["nickname"] = data["nickname"]
+        if "intro" in data:
+            updates["intro"] = data["intro"]
 
         if updates:
-            profile_result = UserService.update_user_profile(username, updates.get('nickname'), updates.get('intro'))
+            profile_result = UserService.update_user_profile(
+                username, updates.get("nickname"), updates.get("intro")
+            )
             if profile_result is None:
-                return jsonify({'error': 'Failed to update profile'}), 500
+                return jsonify({"error": "Failed to update profile"}), 500
             profile_updated = True
 
         # 更新头像（文件上传）
-        if 'avatar' in request.files:
-            file = request.files['avatar']
+        if "avatar" in request.files:
+            file = request.files["avatar"]
             if not allowed_file(file.filename):
-                return jsonify({'error': 'Invalid file type'}), 400
+                return jsonify({"error": "Invalid file type"}), 400
 
-            file_extension = file.filename.rsplit('.', 1)[1].lower()
+            file_extension = file.filename.rsplit(".", 1)[1].lower()
             avatar_filename = f"{username}_avatar.{file_extension}"
-            file_url = save_file(file, folder=f"user_avatars/{username}", filename=avatar_filename)
+            file_url = save_file(
+                file, folder=f"user_avatars/{username}", filename=avatar_filename
+            )
             if not file_url:
-                return jsonify({'error': 'Failed to save avatar'}), 500
+                return jsonify({"error": "Failed to save avatar"}), 500
 
             # 将头像的 URL 转换为完整的 HTTP 链接
             full_avatar_url = f"http://localhost:5001{file_url}"
             avatar_result = UserService.update_avatar(username, full_avatar_url)
             if avatar_result is None:
-                return jsonify({'error': 'Failed to update avatar'}), 500
-            updates['avatar'] = full_avatar_url
+                return jsonify({"error": "Failed to update avatar"}), 500
+            updates["avatar"] = full_avatar_url
             profile_updated = True
 
         # 更新密码
-        old_password = data.get('oldPassword')
-        new_password = data.get('newPassword')
-        confirm_password = data.get('confirmPassword')
+        old_password = data.get("oldPassword")
+        new_password = data.get("newPassword")
+        confirm_password = data.get("confirmPassword")
 
         if old_password or new_password or confirm_password:
             if not old_password or not new_password or not confirm_password:
-                return jsonify({'error': 'All password fields are required'}), 400
+                return jsonify({"error": "All password fields are required"}), 400
             if new_password != confirm_password:
-                return jsonify({'error': 'New password and confirmation do not match'}), 400
+                return (
+                    jsonify({"error": "New password and confirmation do not match"}),
+                    400,
+                )
 
-            password_result = UserService.update_password(username, new_password,old_password)
+            password_result = UserService.update_password(
+                username, new_password, old_password
+            )
             if password_result is None:
-                return jsonify({'error': 'Failed to update password'}), 401
+                return jsonify({"error": "Failed to update password"}), 401
             password_updated = True
 
-        return jsonify({
-            'code': 200,
-            'message': 'Update successful',
-            'data': {
-                'profile_updated': profile_updated,
-                'password_updated': password_updated,
-                'updated_fields': updates
+        return jsonify(
+            {
+                "code": 200,
+                "message": "Update successful",
+                "data": {
+                    "profile_updated": profile_updated,
+                    "password_updated": password_updated,
+                    "updated_fields": updates,
+                },
             }
-        })
+        )
 
     except Exception as e:
         logger.error(f"Update user error: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/verify-security', methods=['POST'])
+@app.route("/verify-security", methods=["POST"])
 def verify_security():
     """验证安全问题"""
     try:
         data = request.get_json()
-        username = data.get('username')
-        security_answer = data.get('security_answer')
+        username = data.get("username")
+        security_answer = data.get("security_answer")
 
         user = UserService.get_user_by_username(username)
         if not user:
-            return jsonify({'error': 'User not found'}), 404
+            return jsonify({"error": "User not found"}), 404
 
         if not security_answer:
-            return jsonify({
-                'security_question': user['security_question']
-            }), 200
+            return jsonify({"security_question": user["security_question"]}), 200
 
-        if user['security_answer'] != security_answer:
-            return jsonify({'error': 'Invalid security answer'}), 401
+        if user["security_answer"] != security_answer:
+            return jsonify({"error": "Invalid security answer"}), 401
 
-        return jsonify({
-            'message': 'Security answer verified',
-            'verified': True
-        }), 200
+        return jsonify({"message": "Security answer verified", "verified": True}), 200
 
     except Exception as e:
         logger.error(f"Security verification error: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/upload/audio', methods=['POST'])
+@app.route("/upload/audio", methods=["POST"])
 def upload_audio():
-    '''
+    """
     1、检索文件夹音频：上传多个音频 / 没有音频
     2、上传音频：上传单个音频
-    '''
+    """
     try:
-        username = request.form.get('username')
-        files = request.files.getlist('audio_files')
-        is_self = request.form.get('is_self')
+        username = request.form.get("username")
+        files = request.files.getlist("audio_files")
+        is_self = request.form.get("is_self")
 
         # 歌手名
-        artist = request.form.get('artist') or '未知歌手'
+        artist = request.form.get("artist") or "未知歌手"
         # song_name = request.form.get('song_name') or ''
         # 歌单，云歌单：1，本地歌单：2，喜欢的歌单：3
-        playlist_type = request.form.get('playlist_type')
-        pic_url = 'burger.png'
+        playlist_type = request.form.get("playlist_type")
+        pic_url = "burger.png"
 
         if not username:
-            return jsonify({'error': 'Missing username'}), 400
+            return jsonify({"error": "Missing username"}), 400
 
         user = UserService.get_user_by_username(username)
         if not user:
-            return jsonify({'error': 'User not found'}), 404
+            return jsonify({"error": "User not found"}), 404
 
-        user_id = user['id']
+        user_id = user["id"]
 
         for file in files:
             if not allowed_audio_file(file.filename):
@@ -627,7 +689,9 @@ def upload_audio():
             existing_files = DatabaseManager.execute_query(query, params, fetch=True)
 
             if existing_files:
-                logger.info(f"User {username} already has a file named {file.filename}. Skipping save.")
+                logger.info(
+                    f"User {username} already has a file named {file.filename}. Skipping save."
+                )
                 continue
 
             # 获取音频大小
@@ -654,43 +718,57 @@ def upload_audio():
                 INSERT INTO audio_files (user_id, filename, duration, file_path,artist, playlist_type,pic_url,is_self,music_id,file_size)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s,%s,%s)
             """
-            params = (user_id, filename, duration, file_path, artist, playlist_type,pic_url,is_self,musics_id,file_size)
+            params = (
+                user_id,
+                filename,
+                duration,
+                file_path,
+                artist,
+                playlist_type,
+                pic_url,
+                is_self,
+                musics_id,
+                file_size,
+            )
             DatabaseManager.execute_query(query, params)
-                
-        return jsonify({'message': 'Audio files processed successfully'}), 200
+
+        return jsonify({"message": "Audio files processed successfully"}), 200
 
     except Exception as e:
         logger.error(f"Error uploading audio files: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
-'''
+
+"""
 添加音频到歌单
-'''
-@app.route('/api/playlist/add', methods=['POST'])
+"""
+
+
+@app.route("/api/playlist/add", methods=["POST"])
 def add_to_playlist():
     try:
         # 音频两种
-        '''
+        """
         1、api音频，包含用户名、添加歌单类型、歌曲名、歌手名、歌曲时长、歌曲封面路径
         2、自定义音频：包含用户名、添加歌单类型、歌曲名、自定义歌曲声明
-        '''
+        """
         data = request.get_json()
-        username = data.get('username')
-        music_id = data.get('music_id')
-        playlist_type = data.get('playlist_type')
-        song_name = data.get('song_name')
-        artist = data.get('artist')
-        duration = data.get('duration')
-        pic_url = data.get('pic_url')
-        is_self = data.get('is_self')
+        username = data.get("username")
+        music_id = data.get("music_id")
+        playlist_type = data.get("playlist_type")
+        song_name = data.get("song_name")
+        artist = data.get("artist")
+        duration = data.get("duration")
+        pic_url = data.get("pic_url")
+        is_self = data.get("is_self")
 
         if not all([username, playlist_type]):
-            return jsonify({'error': 'Missing required fields'}), 400
-        
+            return jsonify({"error": "Missing required fields"}), 400
+
         # 获取用户id
-        user_id = UserService.get_user_by_username(username)['id']
+        user_id = UserService.get_user_by_username(username)["id"]
         if not user_id:
-            return jsonify({'error': 'User not found'}), 404
+            return jsonify({"error": "User not found"}), 404
 
         # 查询是否已存在该歌曲
         query = "SELECT * FROM audio_files WHERE user_id = %s AND filename = %s AND playlist_type = %s"
@@ -698,12 +776,20 @@ def add_to_playlist():
         existing_files = DatabaseManager.execute_query(query, params, fetch=True)
 
         if existing_files:
-            return jsonify({'message': 'Audio already exists in playlist'}), 400
-        
+            return jsonify({"message": "Audio already exists in playlist"}), 400
+
         if not is_self:
             # api音频，直接添加到歌单
             query = "insert into audio_files (user_id, filename, duration,artist, playlist_type,pic_url,music_id) values (%s, %s, %s, %s, %s, %s,%s)"
-            params = (user_id, song_name, duration, artist, playlist_type,pic_url,music_id)
+            params = (
+                user_id,
+                song_name,
+                duration,
+                artist,
+                playlist_type,
+                pic_url,
+                music_id,
+            )
             DatabaseManager.execute_query(query, params)
         else:
             # 自定义音频
@@ -718,62 +804,72 @@ def add_to_playlist():
                     INSERT INTO audio_files (user_id, filename, duration, file_path,artist, playlist_type,pic_url,is_self,music_id)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
-                params = (user_id, existing_files[0]['filename'], existing_files[0]['duration'], existing_files[0]['file_path'], existing_files[0]['artist'], playlist_type,existing_files[0]['pic_url'],is_self,existing_files[0]['music_id'])
+                params = (
+                    user_id,
+                    existing_files[0]["filename"],
+                    existing_files[0]["duration"],
+                    existing_files[0]["file_path"],
+                    existing_files[0]["artist"],
+                    playlist_type,
+                    existing_files[0]["pic_url"],
+                    is_self,
+                    existing_files[0]["music_id"],
+                )
                 DatabaseManager.execute_query(query, params)
 
-        return jsonify({'message': 'Audio added to playlist successfully'}), 200
+        return jsonify({"message": "Audio added to playlist successfully"}), 200
 
     except Exception as e:
         logger.error(f"Error adding audio to playlist: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
-@app.route('/audio', methods=['GET'])
+
+@app.route("/audio", methods=["GET"])
 def get_audio():
     """根据音频ID生成音频链接"""
     try:
-        audio_id = request.args.get('id')
+        audio_id = request.args.get("id")
         query = "SELECT file_path FROM audio_files WHERE music_id = %s"
         result = DatabaseManager.execute_query(query, (audio_id,), fetch=True)
 
         if not result:
-            return jsonify({'error': 'Audio not found'}), 404
+            return jsonify({"error": "Audio not found"}), 404
 
         # 获取文件路径
-        file_path = result[0]['file_path']
+        file_path = result[0]["file_path"]
 
         # 检查文件是否存在
         if not os.path.exists(file_path):
-            return jsonify({'error': 'File not found on server'}), 404
+            return jsonify({"error": "File not found on server"}), 404
 
         # 构建完整的 HTTP URL
-        host = request.host_url.rstrip('/')  # 获取主机地址
+        host = request.host_url.rstrip("/")  # 获取主机地址
         file_url = f"{host}/static/{os.path.relpath(file_path, start='static')}"
 
-        return jsonify({'musicUrl': file_url}), 200
+        return jsonify({"musicUrl": file_url}), 200
     except Exception as e:
         logger.error(f"Error fetching audio file URL: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
-@app.route('/logout', methods=['GET'])
+
+@app.route("/logout", methods=["GET"])
 def logout():
     try:
-        return jsonify({
-            'code': 200,
-            'message': 'Logout successful'
-        })
+        return jsonify({"code": 200, "message": "Logout successful"})
     except Exception as e:
         logger.error(f"Logout error: {e}")
-        return jsonify({'error': 'Logout failed'}), 500
+        return jsonify({"error": "Logout failed"}), 500
+
 
 # 根据用户、歌单获取歌曲
-@app.route('/api/user/songs', methods=['GET'])
+@app.route("/api/user/songs", methods=["GET"])
 def get_user_songs():
     try:
-        username = request.args.get('username')
+        username = request.args.get("username")
         # 云歌单：1 本地歌单：2 我的最爱歌单：3
-        playlist_type = request.args.get('playlist_type')
+        playlist_type = request.args.get("playlist_type")
         if not username or not playlist_type:
-            return jsonify({'error': 'Missing username or playlist_type'}), 400
+            return jsonify({"error": "Missing username or playlist_type"}), 400
 
         # 获取用户 id
         with DatabaseManager.get_connection() as conn:
@@ -783,11 +879,11 @@ def get_user_songs():
                 user = cursor.fetchone()
 
                 if not user:
-                    return jsonify({'error': 'User not found'}), 404
+                    return jsonify({"error": "User not found"}), 404
                 user_id = user[0]
 
         # 获取歌单信息
-        '''
+        """
         # 添加到已保存文件列表
             saved_files.append({
                 'id': audio_id,
@@ -809,171 +905,187 @@ def get_user_songs():
                 'privileges': [{'chargeInfoList': [{'chargeType': 0}], 'st': 0} for _ in saved_files]
             }
         }
-        '''
+        """
         query = """
             SELECT music_id, filename, duration, artist, playlist_type,pic_url,is_self,file_size
             FROM audio_files
             WHERE user_id = %s AND playlist_type = %s
         """
-        result = DatabaseManager.execute_query(query, (user_id, playlist_type), fetch=True)
+        result = DatabaseManager.execute_query(
+            query, (user_id, playlist_type), fetch=True
+        )
 
         # 构建完整的 HTTP 链接
-        host = request.host_url.rstrip('/')  # 获取当前主机地址
+        host = request.host_url.rstrip("/")  # 获取当前主机地址
         for row in result:
             # 去掉 filename 的后缀
-            row['filename'] = os.path.splitext(row['filename'])[0]
+            row["filename"] = os.path.splitext(row["filename"])[0]
 
             # 如果 pic_url 存在，构建 HTTP 链接
-            if row['pic_url'] and row['is_self']:
-                row['pic_url'] = f"{host}/static/images/{row['pic_url']}"
+            if row["pic_url"] and row["is_self"]:
+                row["pic_url"] = f"{host}/static/images/{row['pic_url']}"
 
         songs = []
         for row in result:
-            songs.append({
-                'id': row['music_id'],
-                'name': row['filename'],
-                'ar': [{'name': row['artist']}],
-                'al': {'picUrl': row['pic_url']},
-                'dt': row['duration'],
-                'mv': 0,
-                'alia': [],
-                'self': row['is_self'],
-                'fee': 8,
-                'st': 0,
-                # 音频大小
-                'file_size': row['file_size']
-            })
+            songs.append(
+                {
+                    "id": row["music_id"],
+                    "name": row["filename"],
+                    "ar": [{"name": row["artist"]}],
+                    "al": {"picUrl": row["pic_url"]},
+                    "dt": row["duration"],
+                    "mv": 0,
+                    "alia": [],
+                    "self": row["is_self"],
+                    "fee": 8,
+                    "st": 0,
+                    # 音频大小
+                    "file_size": row["file_size"],
+                }
+            )
 
         if songs.__len__() == 0:
-            response = {
-                'songsDetail': {}
-            }
+            response = {"songsDetail": {}}
         else:
             response = {
-                'songsDetail': {
-                    'songs': songs,
-                    'privileges': [{'chargeInfoList': [{'chargeType': 0}], 'st': 0} for _ in songs]
+                "songsDetail": {
+                    "songs": songs,
+                    "privileges": [
+                        {"chargeInfoList": [{"chargeType": 0}], "st": 0} for _ in songs
+                    ],
                 }
             }
         return jsonify(response), 200
 
     except Exception as e:
         logger.error(f"Error getting user songs: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/reset-password', methods=['POST'])
+@app.route("/reset-password", methods=["POST"])
 def reset_password():
     try:
         data = request.get_json()
-        username = data.get('username')
-        new_password = data.get('new_password')
+        username = data.get("username")
+        new_password = data.get("new_password")
 
         if not all([username, new_password]):
-            return jsonify({'error': 'Missing required fields'}), 400
+            return jsonify({"error": "Missing required fields"}), 400
 
         user = UserService.get_user_by_username(username)
         if not user:
-            return jsonify({'error': 'User not found'}), 404
+            return jsonify({"error": "User not found"}), 404
 
         result = UserService.update_password(username, new_password)
         if result is not None:
-            return jsonify({'message': 'Password reset successful'}), 200
+            return jsonify({"message": "Password reset successful"}), 200
         else:
-            return jsonify({'error': 'Password reset failed'}), 500
+            return jsonify({"error": "Password reset failed"}), 500
 
     except Exception as e:
         logger.error(f"Password reset error: {e}")
-        return jsonify({'error': 'Internal server error'}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
-@app.route('/api/user/delete', methods=['POST'])
+
+@app.route("/api/user/delete", methods=["POST"])
 def delete_user():
-    username = request.json.get('username')
+    username = request.json.get("username")
     if not username:
-        return jsonify({'message': 'Username is required'}), 400
+        return jsonify({"message": "Username is required"}), 400
 
     user_deleted = UserService.delete_user_from_db(username)
     if user_deleted:
 
-        folder_path = './static/audio/test_api'
+        folder_path = "./static/audio/test_api"
         if os.path.exists(folder_path):
             shutil.rmtree(folder_path)
 
-        return jsonify({'message': 'User deleted successfully'}), 200
+        return jsonify({"message": "User deleted successfully"}), 200
     else:
-        return jsonify({'message': 'User not found'}), 404
-    
+        return jsonify({"message": "User not found"}), 404
+
+
 # 删除用户数据
-@app.route('/api/user/delete-data', methods=['POST'])
+@app.route("/api/user/delete-data", methods=["POST"])
 def delete_user_data():
-    username = request.json.get('username')
+    username = request.json.get("username")
     if not username:
-        return jsonify({'message': 'Username is required'}), 400
+        return jsonify({"message": "Username is required"}), 400
 
     user_data_deleted = UserService.delete_user_data(username)
     if user_data_deleted:
-        return jsonify({'message': 'User data deleted successfully'}), 200
+        return jsonify({"message": "User data deleted successfully"}), 200
     else:
-        return jsonify({'message': 'User not found'}), 404
-    
+        return jsonify({"message": "User not found"}), 404
+
+
 """获取音频文件ID"""
-@app.route('/api/audio/id', methods=['GET'])
+
+
+@app.route("/api/audio/id", methods=["GET"])
 def get_audio_id():
     result = get_audio_music_url()
     if not result:
-        return jsonify({'error': 'Audio ID not found'}), 404
-    return jsonify({'message': 'Audio ID fetched successfully'}), 200
+        return jsonify({"error": "Audio ID not found"}), 404
+    return jsonify({"message": "Audio ID fetched successfully"}), 200
+
 
 """查询用户名是否存在"""
-@app.route('/api/user/exist', methods=['POST'])
+
+
+@app.route("/api/user/exist", methods=["POST"])
 def check_username_exist():
-    username = request.json.get('username')
+    username = request.json.get("username")
     if not username:
-        return jsonify({'error': 'Username is required'}), 400
+        return jsonify({"error": "Username is required"}), 400
 
     user_exist = UserService.get_user_by_username(username)
     if user_exist:
-        return jsonify({'message': 'Username already exists'}), 400
+        return jsonify({"message": "Username already exists"}), 400
     else:
-        return jsonify({'message': 'Username is available'}), 200
+        return jsonify({"message": "Username is available"}), 200
+
 
 """删除用户歌曲"""
-@app.route('/api/user/songs/delete', methods=['POST'])
+
+
+@app.route("/api/user/songs/delete", methods=["POST"])
 def delete_user_songs():
     data = request.get_json()
-    username = data.get('username')
-    music_id = data.get('music_id')
-    playlist_type = data.get('playlist_type')
+    username = data.get("username")
+    music_id = data.get("music_id")
+    playlist_type = data.get("playlist_type")
 
     if not all([username, music_id, playlist_type]):
-        return jsonify({'error': 'Missing required fields'}), 400
+        return jsonify({"error": "Missing required fields"}), 400
 
     # 获取用户id
-    user_id = UserService.get_user_by_username(username)['id']
+    user_id = UserService.get_user_by_username(username)["id"]
     if not user_id:
-        return jsonify({'error': 'User not found'}), 404
-    
+        return jsonify({"error": "User not found"}), 404
+
     # 查询歌曲名
     query = "SELECT filename FROM audio_files WHERE user_id = %s AND music_id = %s AND playlist_type = %s"
     params = (user_id, music_id, playlist_type)
     existing_files = DatabaseManager.execute_query(query, params, fetch=True)
 
     if not existing_files:
-        return jsonify({'error': 'Song not found'}), 404
+        return jsonify({"error": "Song not found"}), 404
 
     # 删除歌曲文件
-    file_path = existing_files[0]['filename']
-    
-    delete_audio_file(file_path,username)
+    file_path = existing_files[0]["filename"]
+
+    delete_audio_file(file_path, username)
 
     # 删除歌曲
     query = "DELETE FROM audio_files WHERE user_id = %s AND music_id = %s AND playlist_type = %s"
     params = (user_id, music_id, playlist_type)
     DatabaseManager.execute_query(query, params)
 
-    return jsonify({'message': 'Song deleted successfully'}), 200
+    return jsonify({"message": "Song deleted successfully"}), 200
 
-@app.route('/api/audio/search', methods=['GET'])
+
+@app.route("/api/audio/search", methods=["GET"])
 def get_music_id():
     query = """
     SELECT af.music_id
@@ -984,8 +1096,9 @@ def get_music_id():
     """
     result = DatabaseManager.execute_query(query, fetch=True)
     if not result:
-        return jsonify({'error': 'Audio ID not found','data': []}), 404
-    return jsonify({'message': 'Audio ID fetched successfully', 'data': result}), 200
+        return jsonify({"error": "Audio ID not found", "data": []}), 404
+    return jsonify({"message": "Audio ID fetched successfully", "data": result}), 200
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     app.run(debug=True, port=5001)
