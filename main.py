@@ -532,59 +532,59 @@ def admin_stats():
         logger.error(f"Admin stats error: {e}")
         return jsonify({"error": "获取统计数据失败"}), 500
 
+
 # 获取用户列表
-@app.route('/admin/users', methods=['GET'])
+@app.route("/admin/users", methods=["GET"])
 def admin_get_users():
     # 验证管理员身份
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Admin_'):
-        return jsonify({'error': '未授权访问'}), 401
-    
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Admin_"):
+        return jsonify({"error": "未授权访问"}), 401
+
     try:
         # 获取分页参数
-        page = int(request.args.get('page', 1))
-        search = request.args.get('search', '')
-        
+        page = int(request.args.get("page", 1))
+        search = request.args.get("search", "")
+
         # 每页显示数量
         per_page = 10
         offset = (page - 1) * per_page
-        
+
         if search:
             query = "SELECT * FROM users WHERE username LIKE %s ORDER BY id DESC LIMIT %s OFFSET %s"
-            params = (f'%{search}%', per_page, offset)
+            params = (f"%{search}%", per_page, offset)
         else:
             query = "SELECT * FROM users ORDER BY id DESC LIMIT %s OFFSET %s"
             params = (per_page, offset)
-        
+
         result = DatabaseManager.execute_query(query, params, fetch=True)
-        
-        return jsonify({
-            'users': result
-        }), 200
-        
+
+        return jsonify({"users": result}), 200
+
     except Exception as e:
         logger.error(f"Admin get users error: {e}")
-        return jsonify({'error': '获取用户列表失败'}), 500
+        return jsonify({"error": "获取用户列表失败"}), 500
+
 
 # 获取单个用户详情
-@app.route('/admin/users/<int:user_id>', methods=['GET'])
+@app.route("/admin/users/<int:user_id>", methods=["GET"])
 def admin_get_user(user_id):
     # 验证管理员身份
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Admin_'):
-        return jsonify({'error': '未授权访问'}), 401
-    
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Admin_"):
+        return jsonify({"error": "未授权访问"}), 401
+
     try:
         # 获取用户信息
-        query = "SELECT * FROM users WHERE id = %s"
+        query = "SELECT id, username, nickname, avatar_url, intro, created_at, security_question, security_answer FROM users WHERE id = %s"
         params = (user_id,)
         user_result = DatabaseManager.execute_query(query, params, fetch=True)
-        
+
         if not user_result:
-            return jsonify({'error': '用户不存在'}), 404
-        
+            return jsonify({"error": "用户不存在"}), 404
+
         user = user_result[0]
-        
+
         # 获取用户统计信息
         stats_query = """
             SELECT 
@@ -593,54 +593,59 @@ def admin_get_user(user_id):
             FROM audio_files
             WHERE user_id = %s
         """
-        stats_result = DatabaseManager.execute_query(stats_query, (user_id,), fetch=True)
-        
+        stats_result = DatabaseManager.execute_query(
+            stats_query, (user_id,), fetch=True
+        )
+
         # 头像处理
-        if user.get('avatar_url'):
-            host = request.host_url.rstrip('/')
-            user['avatar_url'] = f"{host}{user['avatar_url']}"
-        
-        return jsonify({
-            'user': user,
-            'statistics': stats_result[0] if stats_result else None
-        }), 200
-        
+        if user.get("avatar_url"):
+            host = request.host_url.rstrip("/")
+            user["avatar_url"] = f"{host}{user['avatar_url']}"
+
+        return (
+            jsonify(
+                {"user": user, "statistics": stats_result[0] if stats_result else None}
+            ),
+            200,
+        )
+
     except Exception as e:
         logger.error(f"Admin get user error: {e}")
-        return jsonify({'error': '获取用户信息失败'}), 500
+        return jsonify({"error": "获取用户信息失败"}), 500
+
 
 # 删除用户
-@app.route('/admin/users/<int:user_id>', methods=['DELETE'])
+@app.route("/admin/users/<int:user_id>", methods=["DELETE"])
 def admin_delete_user(user_id):
     # 验证管理员身份
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Admin_'):
-        return jsonify({'error': '未授权访问'}), 401
-    
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Admin_"):
+        return jsonify({"error": "未授权访问"}), 401
+
     try:
         # 检查用户是否存在
         query = "SELECT username FROM users WHERE id = %s"
         params = (user_id,)
         user_result = DatabaseManager.execute_query(query, params, fetch=True)
-        
+
         if not user_result:
-            return jsonify({'error': '用户不存在'}), 404
-        
-        username = user_result[0]['username']
-        
+            return jsonify({"error": "用户不存在"}), 404
+
+        username = user_result[0]["username"]
+
         # 删除用户的音频文件
         query = "SELECT file_path FROM audio_files WHERE user_id = %s"
         params = (user_id,)
         files_result = DatabaseManager.execute_query(query, params, fetch=True)
-        
+
         for file in files_result:
-            file_path = file['file_path']
+            file_path = file["file_path"]
             if file_path and os.path.exists(file_path):
                 try:
                     os.remove(file_path)
                 except:
                     logger.warning(f"Failed to delete file: {file_path}")
-        
+
         # 删除用户的头像目录
         avatar_dir = os.path.join(UPLOAD_FOLDER, username)
         if os.path.exists(avatar_dir):
@@ -648,7 +653,7 @@ def admin_delete_user(user_id):
                 shutil.rmtree(avatar_dir)
             except:
                 logger.warning(f"Failed to delete avatar directory: {avatar_dir}")
-        
+
         # 删除用户的音频目录
         audio_dir = os.path.join(UPLOAD_AUDIO_FOLDER, username)
         if os.path.exists(audio_dir):
@@ -656,63 +661,95 @@ def admin_delete_user(user_id):
                 shutil.rmtree(audio_dir)
             except:
                 logger.warning(f"Failed to delete audio directory: {audio_dir}")
-        
+
         # 删除用户的音频记录
         query = "DELETE FROM audio_files WHERE user_id = %s"
         params = (user_id,)
         DatabaseManager.execute_query(query, params)
-        
+
         # 最后删除用户
         query = "DELETE FROM users WHERE id = %s"
         params = (user_id,)
         DatabaseManager.execute_query(query, params)
-        
-        return jsonify({
-            'success': True,
-            'message': '用户删除成功'
-        }), 200
-        
+
+        return jsonify({"success": True, "message": "用户删除成功"}), 200
+
     except Exception as e:
         logger.error(f"Admin delete user error: {e}")
-        return jsonify({'error': '删除用户失败'}), 500
+        return jsonify({"error": "删除用户失败"}), 500
+
 
 # 获取所有用户
-@app.route('/admin/users/all', methods=['GET'])
+@app.route("/admin/users/all", methods=["GET"])
 def admin_get_all_users():
     # 验证管理员身份
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Admin_'):
-        return jsonify({'error': '未授权访问'}), 401
-    
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Admin_"):
+        return jsonify({"error": "未授权访问"}), 401
+
     try:
         query = "SELECT id, username FROM users ORDER BY username"
         result = DatabaseManager.execute_query(query, fetch=True)
-        
-        return jsonify({
-            'users': result
-        }), 200
-        
+
+        return jsonify({"users": result}), 200
+
     except Exception as e:
         logger.error(f"Admin get all users error: {e}")
-        return jsonify({'error': '获取用户列表失败'}), 500
+        return jsonify({"error": "获取用户列表失败"}), 500
+
+
+# 重置用户密码
+@app.route("/admin/users/<int:user_id>/reset-password", methods=["POST"])
+def admin_reset_user_password(user_id):
+    # 验证管理员身份
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Admin_"):
+        return jsonify({"error": "未授权访问"}), 401
+
+    try:
+        data = request.get_json()
+        new_password = data.get("new_password")
+
+        if not new_password:
+            return jsonify({"error": "新密码不能为空"}), 400
+
+        # 检查用户是否存在
+        query = "SELECT * FROM users WHERE id = %s"
+        params = (user_id,)
+        user_result = DatabaseManager.execute_query(query, params, fetch=True)
+
+        if not user_result:
+            return jsonify({"error": "用户不存在"}), 404
+
+        # 更新密码
+        query = "UPDATE users SET password = %s WHERE id = %s"
+        params = (new_password, user_id)
+        DatabaseManager.execute_query(query, params)
+
+        return jsonify({"success": True, "message": "密码重置成功"}), 200
+
+    except Exception as e:
+        logger.error(f"Admin reset user password error: {e}")
+        return jsonify({"error": "密码重置失败"}), 500
+
 
 # 获取音乐列表
-@app.route('/admin/music', methods=['GET'])
+@app.route("/admin/music", methods=["GET"])
 def admin_get_music():
     # 验证管理员身份
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Admin_'):
-        return jsonify({'error': '未授权访问'}), 401
-    
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Admin_"):
+        return jsonify({"error": "未授权访问"}), 401
+
     try:
         # 分页参数
-        page = int(request.args.get('page', 1))
-        search = request.args.get('search', '')
-        user_id = request.args.get('user_id', '')
-        playlist_type = request.args.get('playlist_type', '')
+        page = int(request.args.get("page", 1))
+        search = request.args.get("search", "")
+        user_id = request.args.get("user_id", "")
+        playlist_type = request.args.get("playlist_type", "")
         per_page = 10
         offset = (page - 1) * per_page
-        
+
         query = """
             SELECT a.*, u.username 
             FROM audio_files a
@@ -720,40 +757,39 @@ def admin_get_music():
             WHERE 1=1
         """
         params = []
-        
+
         if search:
             query += " AND a.filename LIKE %s"
-            params.append(f'%{search}%')
-        
+            params.append(f"%{search}%")
+
         if user_id:
             query += " AND a.user_id = %s"
             params.append(user_id)
-        
+
         if playlist_type:
             query += " AND a.playlist_type = %s"
             params.append(playlist_type)
-        
+
         query += " ORDER BY a.created_at DESC LIMIT %s OFFSET %s"
         params.extend([per_page, offset])
-        
+
         result = DatabaseManager.execute_query(query, params, fetch=True)
-        
-        return jsonify({
-            'music': result
-        }), 200
-        
+
+        return jsonify({"music": result}), 200
+
     except Exception as e:
         logger.error(f"Admin get music error: {e}")
-        return jsonify({'error': '获取音乐列表失败'}), 500
+        return jsonify({"error": "获取音乐列表失败"}), 500
+
 
 # 获取单个音乐详情
-@app.route('/admin/music/<int:music_id>', methods=['GET'])
+@app.route("/admin/music/<int:music_id>", methods=["GET"])
 def admin_get_music_detail(music_id):
     # 验证管理员身份
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Admin_'):
-        return jsonify({'error': '未授权访问'}), 401
-    
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Admin_"):
+        return jsonify({"error": "未授权访问"}), 401
+
     try:
         query = """
             SELECT a.*, u.username 
@@ -763,71 +799,105 @@ def admin_get_music_detail(music_id):
         """
         params = (music_id,)
         result = DatabaseManager.execute_query(query, params, fetch=True)
-        
+
         if not result:
-            return jsonify({'error': '音乐不存在'}), 404
-        
+            return jsonify({"error": "音乐不存在"}), 404
+
         music = result[0]
-        
+
         # 如果有文件路径，构建完整URL
-        if music.get('file_path'):
-            host = request.host_url.rstrip('/')
-            relative_path = os.path.relpath(music['file_path'], start='static')
-            music['file_path'] = f"{host}/static/{relative_path}"
-        
+        if music.get("file_path"):
+            host = request.host_url.rstrip("/")
+            relative_path = os.path.relpath(music["file_path"], start="static")
+            music["file_path"] = f"{host}/static/{relative_path}"
+
         # 如果有封面图，构建完整URL
-        if music.get('pic_url'):
-            host = request.host_url.rstrip('/')
-            music['pic_url'] = f"{host}/static/images/{music['pic_url']}"
-        
-        return jsonify({
-            'music': music
-        }), 200
-        
+        if music.get("pic_url"):
+            host = request.host_url.rstrip("/")
+            music["pic_url"] = f"{host}/static/images/{music['pic_url']}"
+
+        return jsonify({"music": music}), 200
+
     except Exception as e:
         logger.error(f"Admin get music detail error: {e}")
-        return jsonify({'error': '获取音乐详情失败'}), 500
+        return jsonify({"error": "获取音乐详情失败"}), 500
+
 
 # 删除音乐
-@app.route('/admin/music/<int:music_id>', methods=['DELETE'])
+@app.route("/admin/music/<int:music_id>", methods=["DELETE"])
 def admin_delete_music(music_id):
     # 验证管理员身份
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Admin_'):
-        return jsonify({'error': '未授权访问'}), 401
-    
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Admin_"):
+        return jsonify({"error": "未授权访问"}), 401
+
     try:
         # 先获取音乐信息
         query = "SELECT * FROM audio_files WHERE music_id = %s"
         params = (music_id,)
         result = DatabaseManager.execute_query(query, params, fetch=True)
-        
+
         if not result:
-            return jsonify({'error': '音乐不存在'}), 404
-        
+            return jsonify({"error": "音乐不存在"}), 404
+
         music = result[0]
-        
+
         # 删除文件
-        file_path = music.get('file_path')
+        file_path = music.get("file_path")
         if file_path and os.path.exists(file_path):
             try:
                 os.remove(file_path)
             except:
                 logger.warning(f"Failed to delete file: {file_path}")
-        
+
         # 删除数据库记录
         query = "DELETE FROM audio_files WHERE music_id = %s"
         params = (music_id,)
         DatabaseManager.execute_query(query, params)
-        
-        return jsonify({
-            'success': True,
-            'message': '音乐删除成功'
-        }), 200
-        
+
+        return jsonify({"success": True, "message": "音乐删除成功"}), 200
+
     except Exception as e:
         logger.error(f"Admin delete music error: {e}")
-        return jsonify({'error': '删除音乐失败'}), 500
+        return jsonify({"error": "删除音乐失败"}), 500
+
+
+# 音乐权限控制
+@app.route("/admin/music/<int:music_id>/toggle-disable", methods=["POST"])
+def admin_toggle_disable_music(music_id):
+    # 验证管理员身份
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Admin_"):
+        return jsonify({"error": "未授权访问"}), 401
+
+    try:
+        # 获取音乐信息
+        query = "SELECT is_disabled FROM audio_files WHERE music_id = %s"
+        params = (music_id,)
+        result = DatabaseManager.execute_query(query, params, fetch=True)
+
+        if not result:
+            return jsonify({"error": "音乐不存在"}), 404
+
+        # 切换禁用状态
+        current_state = result[0].get("is_disabled", False)
+        new_state = not current_state
+
+        # 更新数据库
+        query = "UPDATE audio_files SET is_disabled = %s WHERE music_id = %s"
+        params = (new_state, music_id)
+        DatabaseManager.execute_query(query, params)
+
+        message = "音乐已禁用" if new_state else "音乐已解除禁用"
+        return (
+            jsonify({"success": True, "message": message, "is_disabled": new_state}),
+            200,
+        )
+
+    except Exception as e:
+        logger.error(f"Admin toggle disable music error: {e}")
+        return jsonify({"error": "操作失败"}), 500
+
 
 @app.route("/api/user/update", methods=["POST"])
 def update_user():
