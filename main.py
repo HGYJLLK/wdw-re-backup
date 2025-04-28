@@ -1273,7 +1273,7 @@ def get_user_songs():
         }
         """
         query = """
-            SELECT music_id, filename, duration, artist, playlist_type,pic_url,is_self,file_size
+            SELECT music_id, filename, duration, artist, playlist_type, pic_url, is_self, file_size, is_disabled
             FROM audio_files
             WHERE user_id = %s AND playlist_type = %s
         """
@@ -1307,6 +1307,7 @@ def get_user_songs():
                     "st": 0,
                     # 音频大小
                     "file_size": row["file_size"],
+                    "is_disabled": row["is_disabled"],
                 }
             )
 
