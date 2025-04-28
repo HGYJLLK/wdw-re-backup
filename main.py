@@ -676,6 +676,159 @@ def admin_delete_user(user_id):
         logger.error(f"Admin delete user error: {e}")
         return jsonify({'error': '删除用户失败'}), 500
 
+# 获取所有用户
+@app.route('/admin/users/all', methods=['GET'])
+def admin_get_all_users():
+    # 验证管理员身份
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Admin_'):
+        return jsonify({'error': '未授权访问'}), 401
+    
+    try:
+        query = "SELECT id, username FROM users ORDER BY username"
+        result = DatabaseManager.execute_query(query, fetch=True)
+        
+        return jsonify({
+            'users': result
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Admin get all users error: {e}")
+        return jsonify({'error': '获取用户列表失败'}), 500
+
+# 获取音乐列表
+@app.route('/admin/music', methods=['GET'])
+def admin_get_music():
+    # 验证管理员身份
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Admin_'):
+        return jsonify({'error': '未授权访问'}), 401
+    
+    try:
+        # 分页参数
+        page = int(request.args.get('page', 1))
+        search = request.args.get('search', '')
+        user_id = request.args.get('user_id', '')
+        playlist_type = request.args.get('playlist_type', '')
+        per_page = 10
+        offset = (page - 1) * per_page
+        
+        query = """
+            SELECT a.*, u.username 
+            FROM audio_files a
+            JOIN users u ON a.user_id = u.id
+            WHERE 1=1
+        """
+        params = []
+        
+        if search:
+            query += " AND a.filename LIKE %s"
+            params.append(f'%{search}%')
+        
+        if user_id:
+            query += " AND a.user_id = %s"
+            params.append(user_id)
+        
+        if playlist_type:
+            query += " AND a.playlist_type = %s"
+            params.append(playlist_type)
+        
+        query += " ORDER BY a.created_at DESC LIMIT %s OFFSET %s"
+        params.extend([per_page, offset])
+        
+        result = DatabaseManager.execute_query(query, params, fetch=True)
+        
+        return jsonify({
+            'music': result
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Admin get music error: {e}")
+        return jsonify({'error': '获取音乐列表失败'}), 500
+
+# 获取单个音乐详情
+@app.route('/admin/music/<int:music_id>', methods=['GET'])
+def admin_get_music_detail(music_id):
+    # 验证管理员身份
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Admin_'):
+        return jsonify({'error': '未授权访问'}), 401
+    
+    try:
+        query = """
+            SELECT a.*, u.username 
+            FROM audio_files a
+            JOIN users u ON a.user_id = u.id
+            WHERE a.music_id = %s
+        """
+        params = (music_id,)
+        result = DatabaseManager.execute_query(query, params, fetch=True)
+        
+        if not result:
+            return jsonify({'error': '音乐不存在'}), 404
+        
+        music = result[0]
+        
+        # 如果有文件路径，构建完整URL
+        if music.get('file_path'):
+            host = request.host_url.rstrip('/')
+            relative_path = os.path.relpath(music['file_path'], start='static')
+            music['file_path'] = f"{host}/static/{relative_path}"
+        
+        # 如果有封面图，构建完整URL
+        if music.get('pic_url'):
+            host = request.host_url.rstrip('/')
+            music['pic_url'] = f"{host}/static/images/{music['pic_url']}"
+        
+        return jsonify({
+            'music': music
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Admin get music detail error: {e}")
+        return jsonify({'error': '获取音乐详情失败'}), 500
+
+# 删除音乐
+@app.route('/admin/music/<int:music_id>', methods=['DELETE'])
+def admin_delete_music(music_id):
+    # 验证管理员身份
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Admin_'):
+        return jsonify({'error': '未授权访问'}), 401
+    
+    try:
+        # 先获取音乐信息
+        query = "SELECT * FROM audio_files WHERE music_id = %s"
+        params = (music_id,)
+        result = DatabaseManager.execute_query(query, params, fetch=True)
+        
+        if not result:
+            return jsonify({'error': '音乐不存在'}), 404
+        
+        music = result[0]
+        
+        # 删除文件
+        file_path = music.get('file_path')
+        if file_path and os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except:
+                logger.warning(f"Failed to delete file: {file_path}")
+        
+        # 删除数据库记录
+        query = "DELETE FROM audio_files WHERE music_id = %s"
+        params = (music_id,)
+        DatabaseManager.execute_query(query, params)
+        
+        return jsonify({
+            'success': True,
+            'message': '音乐删除成功'
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Admin delete music error: {e}")
+        return jsonify({'error': '删除音乐失败'}), 500
+
 @app.route("/api/user/update", methods=["POST"])
 def update_user():
     """更新用户信息和密码接口"""
