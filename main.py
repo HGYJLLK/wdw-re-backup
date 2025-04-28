@@ -35,8 +35,8 @@ if not os.path.exists(UPLOAD_AUDIO_FOLDER):
 DB_CONFIG = {
     'host': '127.0.0.1',  # 使用本地数据库
     'user': 'root',
-    # 'password': '123qweQWE!',  # 替换为你的密码
-    'password': 'loveat2024a+.',
+    'password': '123qweQWE!',  # 替换为你的密码
+    # 'password': 'loveat2024a+.',
     # 'password': '',
     'database': 'user_auth',
     'port': 3306
@@ -451,6 +451,31 @@ def login():
         logger.error(f"Login error: {e}")
         return jsonify({'error': str(e)}), 500
 
+# 管理员登录接口
+@app.route('/admin/login', methods=['POST'])
+def admin_login():
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+
+        admin_username = "admin"  
+        admin_password = "admin" 
+
+        if username != admin_username or password != admin_password:
+            return jsonify({'error': '用户名或密码错误'}), 401
+
+        # 生成管理员token
+        admin_token = f"Admin_{username}_{int(time.time())}"
+        
+        return jsonify({
+            'message': '登录成功',
+            'token': admin_token
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Admin login error: {e}")
+        return jsonify({'error': '服务器内部错误'}), 500
 
 @app.route('/api/user/update', methods=['POST'])
 def update_user():

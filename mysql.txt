@@ -59,3 +59,88 @@ artist: 歌手名。
 playlist_type: 歌单类型，1为云歌单，2为本地歌单，3为喜欢歌单
 file_size: 音频文件的大小，单位为字节。
 is_self: 是否为自己上传的音频，true为自己上传的音频，false为非自己上传的音频
+
+CREATE TABLE `artist` (
+  `artist_id` INT NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(255) NOT NULL, -- 歌手名
+  `bio` TEXT DEFAULT NULL, -- 歌手简介
+  `avatar_url` VARCHAR(255) DEFAULT NULL, -- 头像路径
+  `bir_place` VARCHAR(100) DEFAULT NULL, -- 歌手出生地
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`artist_id`),
+  UNIQUE KEY `uk_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+表字段说明：
+artist_id: 歌手的唯一标识。
+name: 歌手名。
+bio: 歌手简介。
+avatar_url: 头像路径。
+bir_place: 歌手出生地。
+created_at: 记录歌手创建的时间。
+updated_at: 记录歌手更新的时间。
+
+CREATE TABLE `albums` (
+  `albums_id` INT NOT NULL AUTO_INCREMENT,
+  `albums_title` VARCHAR(255) NOT NULL, -- 专辑标题
+  `artist_id` INT NOT NULL, -- 歌手id
+  `release_year` YEAR DEFAULT NULL, -- 发布年份
+  `img_url` VARCHAR(255) DEFAULT NULL, -- 专辑封面路径
+  `description` TEXT DEFAULT NULL, -- 专辑描述
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`albums_id`),
+  FULLTEXT KEY `ft_title` (`albums_title`)
+  CONSTRAINT `fk_albums_artist` FOREIGN KEY (`artist_id`) REFERENCES `artist` (`artist_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+表字段说明：
+albums_id: 专辑的唯一标识。
+albums_title: 专辑标题。
+artist_id: 歌手id，关联到歌手表的id字段。
+release_year: 发布年份。
+img_url: 专辑封面路径。
+description: 专辑描述。
+created_at: 记录专辑创建的时间。
+updated_at: 记录专辑更新的时间。
+
+CREATE TABLE `songs_messages` (
+  `songs_id` INT NOT NULL AUTO_INCREMENT,
+  `title` VARCHAR(255) NOT NULL, -- 歌曲标题
+  `artist_id` INT NOT NULL, -- 歌手id
+  `album_id` INT DEFAULT NULL, -- 专辑id
+  `genre_type` INT DEFAULT NULL, -- 风格类型
+  `duration` INT NOT NULL COMMENT '毫秒', -- 歌曲时长
+  `release_year` YEAR DEFAULT NULL, -- 发布年份
+  `lyrics` TEXT DEFAULT NULL, -- 歌词
+  `img_url` VARCHAR(255) DEFAULT NULL, -- 封面图路径
+  `count` INT DEFAULT 0, -- 播放次数
+  `file_size` BIGINT DEFAULT NULL COMMENT '字节', -- 文件大小
+  `file_format` VARCHAR(20) DEFAULT NULL, -- 文件格式
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`songs_id`),
+  FULLTEXT KEY `ft_title` (`title`)
+  CONSTRAINT `fk_songs_album` FOREIGN KEY (`album_id`) REFERENCES `albums` (`albums_id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_songs_artist` FOREIGN KEY (`artist_id`) REFERENCES `artist` (`artist_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+表字段说明：
+songs_id: 歌曲的唯一标识。
+title: 歌曲标题。
+artist_id: 歌手id，关联到歌手表的id字段。
+album_id: 专辑id，关联到专辑表的id字段。
+genre_type: 风格类型，关联到歌曲风格表的id字段。
+duration: 歌曲时长，单位为毫秒。
+release_year: 发布年份。
+lyrics: 歌词。
+img_url: 封面图路径。
+count: 播放次数。
+file_size: 文件大小，单位为字节。
+file_format: 文件格式。
+created_at: 记录歌曲上传的时间。
+updated_at: 记录歌曲更新的时间。
+
+ALTER TABLE `audio_files` 
+ADD CONSTRAINT `fk_audio_files_music` FOREIGN KEY (`music_id`) REFERENCES `songs_messages` (`songs_id`) ON DELETE SET NULL;
