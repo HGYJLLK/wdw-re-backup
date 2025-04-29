@@ -159,12 +159,16 @@ CREATE TABLE `central_music_library` (
 CREATE TABLE `global_music` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `music_id` VARCHAR(50) NOT NULL,
+  `user_id` INT,
+  `username` VARCHAR(50),
   `name` VARCHAR(255) NOT NULL,
   `artist` VARCHAR(255),
   `duration` INT,
+  `file_size` BIGINT,
   `pic_url` VARCHAR(255),
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `is_disabled` BOOLEAN DEFAULT FALSE,
+  `is_api_music` BOOLEAN DEFAULT FALSE, -- 区分是自定义音频还是API音频
   PRIMARY KEY (`id`),
   UNIQUE KEY `music_id` (`music_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

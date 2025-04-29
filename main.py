@@ -38,9 +38,7 @@ if not os.path.exists(UPLOAD_AUDIO_FOLDER):
 DB_CONFIG = {
     "host": "127.0.0.1",  # 使用本地数据库
     "user": "root",
-    "password": "123qweQWE!",  # 替换为你的密码
-    # 'password': 'loveat2024a+.',
-    # 'password': '',
+    "password": "2333",  # 替换为你的密码
     "database": "user_auth",
     "port": 3306,
 }
@@ -666,6 +664,9 @@ def admin_delete_user(user_id):
         query = "DELETE FROM audio_files WHERE user_id = %s"
         params = (user_id,)
         DatabaseManager.execute_query(query, params)
+        query = "DELETE FROM global_music WHERE user_id = %s"
+        params = (user_id,)
+        DatabaseManager.execute_query(query, params)
 
         # 最后删除用户
         query = "DELETE FROM users WHERE id = %s"
@@ -749,18 +750,16 @@ def admin_get_music():
         offset = (page - 1) * per_page
 
         query = """
-            SELECT a.*, u.username 
-            FROM audio_files a
-            JOIN users u ON a.user_id = u.id
-            WHERE 1=1
+            SELECT *
+            FROM global_music 
         """
         params = []
 
         if search:
-            query += " AND a.filename LIKE %s"
+            query += " where name LIKE %s"
             params.append(f"%{search}%")
 
-        query += " ORDER BY a.created_at DESC LIMIT %s OFFSET %s"
+        query += " ORDER BY created_at DESC LIMIT %s OFFSET %s"
         params.extend([per_page, offset])
 
         result = DatabaseManager.execute_query(query, params, fetch=True)
@@ -1259,10 +1258,18 @@ def add_to_playlist():
                 # 不存在，添加到管理端
                 global_query = """
                     INSERT INTO global_music 
-                    (music_id, name, artist, duration, pic_url) 
-                    VALUES (%s, %s, %s, %s, %s)
+                    (music_id, name, artist, duration, pic_url,is_api_music,user_id) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s,%s)
                 """
-                global_params = (music_id, song_name, artist, duration, pic_url)
+                global_params = (
+                    music_id,
+                    song_name,
+                    artist,
+                    duration,
+                    pic_url,
+                    True,
+                    user_id,
+                )
                 DatabaseManager.execute_query(global_query, global_params)
 
             # 关联用户
@@ -1309,6 +1316,36 @@ def add_to_playlist():
                     existing_files[0]["music_id"],
                 )
                 DatabaseManager.execute_query(query, params)
+
+                # 检查管理端该用户是否已添加过该歌曲
+                check_query = (
+                    "SELECT * FROM global_music WHERE music_id = %s AND user_id = %s"
+                )
+                check_params = (music_id, user_id)
+                global_music = DatabaseManager.execute_query(
+                    check_query, check_params, fetch=True
+                )
+
+                if not global_music:
+                    # 未添加过，添加到管理端
+                    global_query = """
+                        INSERT INTO global_music 
+                        (music_id, name, artist, duration, pic_url, user_id, is_api_music,username,user_id) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s,%s,%s)
+                    """
+                    global_params = (
+                        music_id,
+                        song_name,
+                        artist,
+                        duration,
+                        pic_url,
+                        user_id,
+                        False,
+                        username,
+                        user_id,
+                    )
+
+                    DatabaseManager.execute_query(global_query, global_params)
 
         return jsonify({"message": "Audio added to playlist successfully"}), 200
 
