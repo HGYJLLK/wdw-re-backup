@@ -655,7 +655,7 @@ def admin_delete_user(user_id):
         query = "DELETE FROM audio_files WHERE user_id = %s"
         params = (user_id,)
         DatabaseManager.execute_query(query, params)
-        query = "DELETE FROM global_music WHERE user_id = %s"
+        query = "DELETE FROM global_music WHERE user_id = %s and is_api_music = FALSE"
         params = (user_id,)
         DatabaseManager.execute_query(query, params)
 
