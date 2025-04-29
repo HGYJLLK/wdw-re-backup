@@ -489,46 +489,37 @@ def admin_login():
 
 # 管理员获取统计数据接口
 @app.route("/admin/stats", methods=["GET"])
-def admin_stats():
-    # 验证管理员身份
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Admin_"):
-        return jsonify({"error": "未授权访问"}), 401
-
+def get_admin_stats():
     try:
-        # 获取用户总数
-        users_query = "SELECT COUNT(*) as total FROM users"
+        # 用户总数
+        users_query = "SELECT COUNT(*) AS count FROM users"
         users_result = DatabaseManager.execute_query(users_query, fetch=True)
-        total_users = users_result[0]["total"] if users_result else 0
 
-        # 获取音乐总数
-        songs_query = "SELECT COUNT(*) as total FROM audio_files"
+        # 音乐总数 - 从global_music表获取
+        songs_query = "SELECT COUNT(*) AS count FROM global_music"
         songs_result = DatabaseManager.execute_query(songs_query, fetch=True)
-        total_songs = songs_result[0]["total"] if songs_result else 0
 
-        # 获取存储空间使用情况
-        storage_query = "SELECT SUM(file_size) as total FROM audio_files"
+        # 存储空间使用
+        storage_query = "SELECT SUM(file_size) AS total FROM global_music"
         storage_result = DatabaseManager.execute_query(storage_query, fetch=True)
-        storage_used = (
-            storage_result[0]["total"]
-            if storage_result and storage_result[0]["total"]
-            else 0
-        )
 
         return (
             jsonify(
                 {
-                    "totalUsers": total_users,
-                    "totalSongs": total_songs,
-                    "storageUsed": storage_used,
+                    "totalUsers": users_result[0]["count"] if users_result else 0,
+                    "totalSongs": songs_result[0]["count"] if songs_result else 0,
+                    "storageUsed": (
+                        storage_result[0]["total"]
+                        if storage_result and storage_result[0]["total"]
+                        else 0
+                    ),
                 }
             ),
             200,
         )
-
     except Exception as e:
-        logger.error(f"Admin stats error: {e}")
-        return jsonify({"error": "获取统计数据失败"}), 500
+        logger.error(f"Error getting admin stats: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 # 获取用户列表
