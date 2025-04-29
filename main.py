@@ -990,6 +990,20 @@ def check_music_status():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/disabled-music", methods=["GET"])
+def get_disabled_music():
+    """获取所有被禁用的音乐列表"""
+    try:
+        query = "SELECT music_id FROM global_music WHERE is_disabled = TRUE"
+        result = DatabaseManager.execute_query(query, fetch=True)
+
+        disabled_ids = [item["music_id"] for item in result]
+        return jsonify({"disabled_music_ids": disabled_ids}), 200
+    except Exception as e:
+        logger.error(f"Error getting disabled music: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/user/update", methods=["POST"])
 def update_user():
     """更新用户信息和密码接口"""
@@ -1218,6 +1232,7 @@ def add_to_playlist():
         duration = data.get("duration")
         pic_url = data.get("pic_url")
         is_self = data.get("is_self")
+        song_size = data.get("song_size")
 
         if not all([username, playlist_type]):
             return jsonify({"error": "Missing required fields"}), 400
@@ -1247,8 +1262,8 @@ def add_to_playlist():
                 # 不存在，添加到管理端
                 global_query = """
                     INSERT INTO global_music 
-                    (music_id, name, artist, duration, pic_url,is_api_music,user_id) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    (music_id, name, artist, duration, pic_url,is_api_music,user_id,file_size) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s,%s)
                 """
                 global_params = (
                     music_id,
@@ -1258,6 +1273,7 @@ def add_to_playlist():
                     pic_url,
                     True,
                     user_id,
+                    song_size,
                 )
                 DatabaseManager.execute_query(global_query, global_params)
 
