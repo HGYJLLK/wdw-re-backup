@@ -929,6 +929,67 @@ def admin_toggle_global_music(music_id):
         return jsonify({"error": "操作失败"}), 500
 
 
+@app.route("/api/music/status", methods=["GET"])
+def check_music_status():
+    """检查音乐是否被禁用"""
+    try:
+        music_id = request.args.get("id")
+        if not music_id:
+            return jsonify({"error": "Music ID is required"}), 400
+
+        # # 记录请求的ID
+        # logger.info(f"[STATUS CHECK] Received request for music_id: {music_id}")
+
+        # 先直接在global_music表中查找完全匹配
+        query1 = "SELECT is_disabled FROM global_music WHERE music_id = %s"
+        direct_result = DatabaseManager.execute_query(query1, (music_id,), fetch=True)
+
+        if direct_result:
+            # logger.info(
+            #     f"[STATUS CHECK] Direct match found in global_music: {direct_result}"
+            # )
+            return jsonify({"is_disabled": direct_result[0]["is_disabled"]}), 200
+
+        # 如果直接匹配失败，尝试通过audio_files表查询引用
+        query2 = """
+            SELECT gm.is_disabled 
+            FROM audio_files af
+            JOIN global_music gm ON af.music_id = gm.music_id
+            WHERE af.reference_id = %s OR af.music_id = %s
+        """
+        ref_result = DatabaseManager.execute_query(
+            query2, (music_id, music_id), fetch=True
+        )
+
+        if ref_result:
+            logger.info(f"[STATUS CHECK] Reference match found: {ref_result}")
+            return jsonify({"is_disabled": ref_result[0]["is_disabled"]}), 200
+
+        # 如果还找不到，最后一次尝试使用like模式匹配
+        query3 = """
+            SELECT gm.is_disabled
+            FROM global_music gm
+            WHERE gm.music_id LIKE %s
+        """
+        like_result = DatabaseManager.execute_query(
+            query3, (f"%{music_id}%",), fetch=True
+        )
+
+        if like_result:
+            logger.info(f"[STATUS CHECK] Like match found: {like_result}")
+            return jsonify({"is_disabled": like_result[0]["is_disabled"]}), 200
+
+        # 实在找不到，认为未禁用
+        logger.info(
+            f"[STATUS CHECK] No match found for {music_id}, assuming not disabled"
+        )
+        return jsonify({"is_disabled": False}), 200
+
+    except Exception as e:
+        logger.error(f"[STATUS CHECK] Error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/user/update", methods=["POST"])
 def update_user():
     """更新用户信息和密码接口"""
@@ -1287,6 +1348,22 @@ def get_audio():
     """根据音频ID生成音频链接"""
     try:
         audio_id = request.args.get("id")
+
+        # # 检查global_music表中是否有该音频，以及它是否被禁用
+        # check_query = "SELECT is_disabled FROM global_music WHERE music_id = %s"
+        # check_result = DatabaseManager.execute_query(
+        #     check_query, (audio_id,), fetch=True
+        # )
+
+        # print(check_result,"/audio-get")
+
+        # # 如果音频存在于global_music表且被禁用，则拒绝访问
+        # if check_result and check_result[0]["is_disabled"]:
+        #     return (
+        #         jsonify({"error": "This audio has been disabled by administrator"}),
+        #         403,
+        #     )
+
         query = "SELECT file_path FROM audio_files WHERE music_id = %s"
         result = DatabaseManager.execute_query(query, (audio_id,), fetch=True)
 
