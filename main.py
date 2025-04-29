@@ -754,7 +754,7 @@ def get_admin_music():
             params.extend([f"%{search}%", f"%{search}%"])
 
         if user_id:
-            conditions.append("gm.user_id = %s")
+            conditions.append("(gm.user_id = %s AND gm.is_api_music = FALSE)")
             params.append(user_id)
 
         # 构建完整查询
