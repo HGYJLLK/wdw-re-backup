@@ -38,7 +38,7 @@ if not os.path.exists(UPLOAD_AUDIO_FOLDER):
 DB_CONFIG = {
     "host": "127.0.0.1",  # 使用本地数据库
     "user": "root",
-    "password": "2333",  # 替换为你的密码
+    "password": "123qweQWE!",  # 替换为你的密码
     "database": "user_auth",
     "port": 3306,
 }
@@ -736,96 +736,68 @@ def admin_reset_user_password(user_id):
 
 # 获取音乐列表
 @app.route("/admin/music", methods=["GET"])
-def admin_get_music():
-    # 验证管理员身份
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Admin_"):
-        return jsonify({"error": "未授权访问"}), 401
-
+def get_admin_music():
     try:
-        # 获取分页参数
+        # token = request.headers.get("Authorization")
         page = int(request.args.get("page", 1))
         search = request.args.get("search", "")
-        per_page = 10
-        offset = (page - 1) * per_page
+        user_id = request.args.get("user_id", "")
 
-        query = """
-            SELECT *
-            FROM global_music 
-        """
+        limit = 10
+        offset = (page - 1) * limit
+
+        conditions = []
         params = []
 
         if search:
-            query += " where name LIKE %s"
-            params.append(f"%{search}%")
+            conditions.append("(gm.name LIKE %s OR gm.artist LIKE %s)")
+            params.extend([f"%{search}%", f"%{search}%"])
 
-        query += " ORDER BY created_at DESC LIMIT %s OFFSET %s"
-        params.extend([per_page, offset])
+        if user_id:
+            conditions.append("gm.user_id = %s")
+            params.append(user_id)
 
-        result = DatabaseManager.execute_query(query, params, fetch=True)
+        # 构建完整查询
+        query = """
+            SELECT gm.*, u.username 
+            FROM global_music gm
+            LEFT JOIN users u ON gm.user_id = u.id
+        """
 
-        # 检查是否有结果
-        if not result:
-            result = []
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        query += " ORDER BY gm.created_at DESC LIMIT %s OFFSET %s"
+        params.extend([limit, offset])
+
+        result = DatabaseManager.execute_query(query, tuple(params), fetch=True)
 
         return jsonify({"music": result}), 200
-
     except Exception as e:
-        logger.error(f"Admin get music error: {e}")
-        return jsonify({"error": f"获取音乐列表失败: {str(e)}"}), 500
+        logger.error(f"Error getting music list: {e}")
+        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
 
 # 获取单个音乐详情
-@app.route("/admin/music/<int:music_id>", methods=["GET"])
-def admin_get_music_detail(music_id):
-    # 验证管理员身份
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Admin_"):
-        return jsonify({"error": "未授权访问"}), 401
-
+@app.route("/admin/music/<music_id>", methods=["GET"])
+def get_admin_music_detail(music_id):
     try:
         query = """
-            SELECT a.*, u.username 
-            FROM audio_files a
-            JOIN users u ON a.user_id = u.id
-            WHERE a.music_id = %s
+            SELECT gm.*, u.username 
+            FROM global_music gm
+            LEFT JOIN users u ON gm.user_id = u.id
+            WHERE gm.music_id = %s
         """
-        params = (music_id,)
-        result = DatabaseManager.execute_query(query, params, fetch=True)
+
+        result = DatabaseManager.execute_query(query, (music_id,), fetch=True)
 
         if not result:
-            return jsonify({"error": "音乐不存在"}), 404
+            return jsonify({"error": "Music not found"}), 404
 
-        music = result[0]
-
-        # 如果有文件路径，构建完整URL
-        if music.get("file_path"):
-            host = request.host_url.rstrip("/")
-            try:
-                if "static/" in music["file_path"]:
-                    relative_path = os.path.relpath(music["file_path"], start="static")
-                    music["file_path"] = f"{host}/static/{relative_path}"
-                else:
-                    music["file_path"] = f"{host}/{music['file_path']}"
-            except Exception as e:
-                logger.error(f"Error formatting file path: {e}")
-                music["file_path"] = None
-
-        # 如果有封面图，构建完整URL
-        if music.get("pic_url"):
-            host = request.host_url.rstrip("/")
-            if not music["pic_url"].startswith("http"):
-                if "static/" in music["pic_url"]:
-                    relative_pic = os.path.relpath(music["pic_url"], start="static")
-                    music["pic_url"] = f"{host}/static/{relative_pic}"
-                else:
-                    music["pic_url"] = f"{host}/static/images/{music['pic_url']}"
-
-        return jsonify({"music": music}), 200
-
+        return jsonify({"music": result[0]}), 200
     except Exception as e:
-        logger.error(f"Admin get music detail error: {e}")
-        return jsonify({"error": f"获取音乐详情失败: {str(e)}"}), 500
+        logger.error(f"Error getting music detail: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 # 删除音乐
@@ -868,69 +840,34 @@ def admin_delete_music(music_id):
 
 
 # 音乐权限控制
-@app.route("/admin/music/<int:music_id>/toggle-disable", methods=["POST"])
-def admin_toggle_disable_music(music_id):
-    # 验证管理员身份
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Admin_"):
-        return jsonify({"error": "未授权访问"}), 401
-
+@app.route("/admin/music/<music_id>/toggle-disable", methods=["POST"])
+def toggle_disable_music(music_id):
     try:
-        # 判断是自定义音乐还是API音乐
-        query = "SELECT is_api_music, reference_id FROM audio_files WHERE music_id = %s LIMIT 1"
-        params = (music_id,)
-        result = DatabaseManager.execute_query(query, params, fetch=True)
+        # 获取当前状态
+        query = "SELECT is_disabled, is_api_music FROM global_music WHERE music_id = %s"
+        result = DatabaseManager.execute_query(query, (music_id,), fetch=True)
 
-        if result and result[0]["is_api_music"]:
-            # API音乐，更新管理端
-            reference_id = result[0]["reference_id"]
+        if not result:
+            return jsonify({"error": "Music not found"}), 404
 
-            # 获取当前状态
-            query = "SELECT is_disabled FROM central_music_library WHERE music_id = %s"
-            params = (reference_id,)
-            central_result = DatabaseManager.execute_query(query, params, fetch=True)
+        current_state = result[0]["is_disabled"]
+        is_api_music = result[0]["is_api_music"]
 
-            if not central_result:
-                return jsonify({"error": "音乐不存在"}), 404
+        # 只允许禁用API音乐
+        if not is_api_music:
+            return jsonify({"success": False, "message": "自定义音频不允许禁用"}), 400
 
-            # 切换禁用状态
-            current_state = central_result[0].get("is_disabled", False)
-            new_state = not current_state
+        # 更新状态
+        new_state = not current_state
+        update_query = "UPDATE global_music SET is_disabled = %s WHERE music_id = %s"
+        DatabaseManager.execute_query(update_query, (new_state, music_id))
 
-            # 更新管理端
-            query = (
-                "UPDATE central_music_library SET is_disabled = %s WHERE music_id = %s"
-            )
-            params = (new_state, reference_id)
-            DatabaseManager.execute_query(query, params)
+        action = "禁用" if new_state else "解除禁用"
 
-        else:
-            # 自定义音乐，直接更新
-            query = "SELECT is_disabled FROM audio_files WHERE music_id = %s"
-            params = (music_id,)
-            result = DatabaseManager.execute_query(query, params, fetch=True)
-
-            if not result:
-                return jsonify({"error": "音乐不存在"}), 404
-
-            # 切换禁用状态
-            current_state = result[0].get("is_disabled", False)
-            new_state = not current_state
-
-            # 更新音乐状态
-            query = "UPDATE audio_files SET is_disabled = %s WHERE music_id = %s"
-            params = (new_state, music_id)
-            DatabaseManager.execute_query(query, params)
-
-        message = "音乐已禁用" if new_state else "音乐已解除禁用"
-        return (
-            jsonify({"success": True, "message": message, "is_disabled": new_state}),
-            200,
-        )
-
+        return jsonify({"success": True, "message": f"音乐已{action}"}), 200
     except Exception as e:
-        logger.error(f"Admin toggle disable music error: {e}")
-        return jsonify({"error": "操作失败"}), 500
+        logger.error(f"Error toggling music state: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 # 获取全局音乐详情
@@ -1259,7 +1196,7 @@ def add_to_playlist():
                 global_query = """
                     INSERT INTO global_music 
                     (music_id, name, artist, duration, pic_url,is_api_music,user_id) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s,%s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """
                 global_params = (
                     music_id,
@@ -1518,11 +1455,34 @@ def reset_password():
         return jsonify({"error": "Internal server error"}), 500
 
 
+def delete_user_music_records(user_id):
+    try:
+        # 删除global_music表中用户上传的自定义音频记录
+        query = "DELETE FROM global_music WHERE user_id = %s AND is_api_music = FALSE"
+        DatabaseManager.execute_query(query, (user_id,))
+
+        # 继续删除audio_files表中的记录
+        query = "DELETE FROM audio_files WHERE user_id = %s"
+        DatabaseManager.execute_query(query, (user_id,))
+
+        return True
+    except Exception as e:
+        logger.error(f"Error deleting user music records: {e}")
+        return False
+
+
 @app.route("/api/user/delete", methods=["POST"])
 def delete_user():
     username = request.json.get("username")
     if not username:
         return jsonify({"message": "Username is required"}), 400
+
+    user = UserService.get_user_by_username(username)
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+
+    # 删除用户相关的音乐记录
+    delete_user_music_records(user["id"])
 
     user_deleted = UserService.delete_user_from_db(username)
     if user_deleted:
