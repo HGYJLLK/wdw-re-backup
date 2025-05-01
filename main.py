@@ -170,9 +170,9 @@ class DatabaseManager:
     def get_connection():
         """获取数据库连接"""
         try:
-            logger.info("Attempting to connect to database...")
+            # logger.info("Attempting to connect to database...")
             conn = mysql.connector.connect(**DB_CONFIG)
-            logger.info("Database connection successful")
+            # logger.info("Database connection successful")
             return conn
         except Exception as e:
             logger.error(f"Database connection error: {e}")
@@ -186,16 +186,16 @@ class DatabaseManager:
         try:
             conn = DatabaseManager.get_connection()
             cursor = conn.cursor(dictionary=True)
-            logger.info(f"Executing query: {query} with params: {params}")
+            # logger.info(f"Executing query: {query} with params: {params}")
             cursor.execute(query, params or ())
 
             if fetch:
                 result = cursor.fetchall()
-                logger.info(f"Query returned {len(result)} results")
+                # logger.info(f"Query returned {len(result)} results")
             else:
                 conn.commit()
                 result = cursor.rowcount
-                logger.info(f"Query affected {result} rows")
+                # logger.info(f"Query affected {result} rows")
             return result
 
         except Exception as e:
@@ -962,7 +962,7 @@ def check_music_status():
         )
 
         if ref_result:
-            logger.info(f"[STATUS CHECK] Reference match found: {ref_result}")
+            # logger.info(f"[STATUS CHECK] Reference match found: {ref_result}")
             return jsonify({"is_disabled": ref_result[0]["is_disabled"]}), 200
 
         # 如果还找不到，最后一次尝试使用like模式匹配
@@ -976,12 +976,12 @@ def check_music_status():
         )
 
         if like_result:
-            logger.info(f"[STATUS CHECK] Like match found: {like_result}")
+            # logger.info(f"[STATUS CHECK] Like match found: {like_result}")
             return jsonify({"is_disabled": like_result[0]["is_disabled"]}), 200
 
         # 实在找不到，认为未禁用
         logger.info(
-            f"[STATUS CHECK] No match found for {music_id}, assuming not disabled"
+            # f"[STATUS CHECK] No match found for {music_id}, assuming not disabled"
         )
         return jsonify({"is_disabled": False}), 200
 
@@ -1155,9 +1155,14 @@ def upload_audio():
                 continue
 
             # 检查是否存在同名文件
+            print("user_id", user_id)
+            print("file.filename", file.filename)
+            print("playlist_type", playlist_type)
             query = "SELECT * FROM audio_files WHERE user_id = %s AND filename = %s AND playlist_type = %s"
             params = (user_id, file.filename, playlist_type)
             existing_files = DatabaseManager.execute_query(query, params, fetch=True)
+
+            print(existing_files, "test1111")
 
             if existing_files:
                 logger.info(
@@ -1169,6 +1174,8 @@ def upload_audio():
             file.stream.seek(0, os.SEEK_END)
             file_size = file.stream.tell()
             file.stream.seek(0)
+
+            print("--------------------file_size---------------------------", file_size)
 
             # 保存音频文件
             file_path, filename = save_audio_file(file, username)
@@ -1298,16 +1305,18 @@ def add_to_playlist():
             DatabaseManager.execute_query(query, params)
         else:
             # 自定义音频
+            print("触发自定义音频处理")
             # 在audio_files表中查找该歌名
-            query = "SELECT * FROM audio_files WHERE user_id = %s AND filename = %s"
-            params = (user_id, song_name)
+            query = "SELECT * FROM audio_files WHERE user_id = %s AND filename LIKE %s"
+            params = (user_id, f"%{song_name}%")
             existing_files = DatabaseManager.execute_query(query, params, fetch=True)
 
+            print(existing_files, "test")
             if existing_files:
-                # 歌名存在
+                print("歌名存在")
                 query = """
-                    INSERT INTO audio_files (user_id, filename, duration, file_path,artist, playlist_type,pic_url,is_self,music_id)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    INSERT INTO audio_files (user_id, filename, duration, file_path,artist, playlist_type,pic_url,is_self,music_id,file_size)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s,%s)
                 """
                 params = (
                     user_id,
@@ -1319,6 +1328,7 @@ def add_to_playlist():
                     existing_files[0]["pic_url"],
                     is_self,
                     existing_files[0]["music_id"],
+                    existing_files[0]["file_size"],
                 )
                 DatabaseManager.execute_query(query, params)
 
@@ -1335,7 +1345,7 @@ def add_to_playlist():
                     # 未添加过，添加到管理端
                     global_query = """
                         INSERT INTO global_music 
-                        (music_id, name, artist, duration, pic_url, user_id, is_api_music,username,user_id) 
+                        (music_id, name, artist, duration, pic_url, user_id, is_api_music,username,file_size) 
                         VALUES (%s, %s, %s, %s, %s, %s, %s,%s,%s)
                     """
                     global_params = (
@@ -1347,7 +1357,7 @@ def add_to_playlist():
                         user_id,
                         False,
                         username,
-                        user_id,
+                        song_size,
                     )
 
                     DatabaseManager.execute_query(global_query, global_params)
